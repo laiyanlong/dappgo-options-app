@@ -20,7 +20,7 @@ import {
   generateTickerPrices,
   periodToTradingDays,
 } from '../../src/data/sample-prices';
-import { formatDollar, formatPct } from '../../src/utils/format';
+import { formatDollar } from '../../src/utils/format';
 import type { BacktestInput, BacktestResult } from '../../src/utils/types';
 
 // ── Strategy definitions ──
