@@ -15,9 +15,11 @@ import { fetchReportContent } from '../../src/data/github-api';
 import { parseReport, extractTickerMetrics } from '../../src/data/parser';
 import { formatDollar, formatPct, formatDateFull } from '../../src/utils/format';
 import { GITHUB_OWNER, GITHUB_REPO } from '../../src/utils/constants';
+import Markdown from 'react-native-markdown-display';
 import { Card } from '../../src/components/ui/Card';
 import { Badge } from '../../src/components/ui/Badge';
 import { SegmentedControl } from '../../src/components/ui/SegmentedControl';
+import { useBacktestStore } from '../../src/store/backtest-store';
 import type { DailyReport, TickerReport } from '../../src/utils/types';
 
 const TABS = ['Overview', 'Options', 'Strategy', 'Model', 'AI'];
@@ -43,14 +45,53 @@ function SectionBlock({
     );
   }
 
-  // Render markdown lines as styled text
+  const mdStyles = {
+    body: { color: colors.text, fontSize: 14, lineHeight: 22 },
+    heading1: { color: colors.textHeading, fontSize: 22, fontWeight: '700' as const, marginVertical: 8 },
+    heading2: { color: colors.textHeading, fontSize: 18, fontWeight: '700' as const, marginVertical: 8 },
+    heading3: { color: colors.gold, fontSize: 16, fontWeight: '600' as const, marginVertical: 6 },
+    heading4: { color: colors.accent, fontSize: 14, fontWeight: '600' as const, marginVertical: 4 },
+    paragraph: { color: colors.text, marginVertical: 4 },
+    strong: { color: colors.textHeading, fontWeight: '700' as const },
+    em: { color: colors.textMuted, fontStyle: 'italic' as const },
+    bullet_list: { marginVertical: 4 },
+    ordered_list: { marginVertical: 4 },
+    list_item: { color: colors.text, marginVertical: 2 },
+    code_inline: { color: colors.gold, backgroundColor: colors.backgroundAlt, paddingHorizontal: 4, borderRadius: 3, fontSize: 13 },
+    code_block: { color: colors.text, backgroundColor: colors.backgroundAlt, padding: 12, borderRadius: 8, fontSize: 12, marginVertical: 8 },
+    fence: { color: colors.text, backgroundColor: colors.backgroundAlt, padding: 12, borderRadius: 8, fontSize: 12, marginVertical: 8 },
+    table: { borderColor: colors.border, marginVertical: 8 },
+    thead: { backgroundColor: colors.backgroundAlt },
+    th: { color: colors.textHeading, fontWeight: '600' as const, padding: 6, borderColor: colors.border },
+    td: { color: colors.text, padding: 6, borderColor: colors.border },
+    tr: { borderColor: colors.border },
+    blockquote: { backgroundColor: colors.backgroundAlt, borderLeftColor: colors.accent, borderLeftWidth: 3, paddingLeft: 12, paddingVertical: 4, marginVertical: 6 },
+    hr: { backgroundColor: colors.border, marginVertical: 12 },
+    link: { color: colors.accent },
+    image: { marginVertical: 8 },
+  };
+
+  return (
+    <View style={styles.sectionBlock}>
+      <Markdown style={mdStyles}>{content}</Markdown>
+    </View>
+  );
+}
+
+// Keep old line-based renderer as fallback reference
+function _LegacySectionBlock({
+  content,
+  colors,
+}: {
+  title: string;
+  content: string;
+  colors: any;
+}) {
   const lines = content.split('\n');
   return (
     <View style={styles.sectionBlock}>
-      {lines.map((line, i) => {
+      {lines.map((line: string, i: number) => {
         const trimmed = line.trimStart();
-
-        // H3 headers
         if (trimmed.startsWith('### ')) {
           return (
             <Text key={i} style={[styles.h3, { color: colors.gold }]}>
@@ -58,8 +99,6 @@ function SectionBlock({
             </Text>
           );
         }
-
-        // H2 headers (already a section title)
         if (trimmed.startsWith('## ')) {
           return (
             <Text key={i} style={[styles.h2, { color: colors.textHeading }]}>
@@ -67,8 +106,6 @@ function SectionBlock({
             </Text>
           );
         }
-
-        // Bold lines
         if (trimmed.startsWith('**') && trimmed.endsWith('**')) {
           return (
             <Text key={i} style={[styles.boldLine, { color: colors.textHeading }]}>
@@ -236,6 +273,7 @@ export default function ReportDetailScreen() {
   const { date } = useLocalSearchParams<{ date: string }>();
   const { colors } = useTheme();
   const router = useRouter();
+  const addToPortfolio = useBacktestStore((s) => s.addToPortfolio);
 
   const cachedReport = useAppStore((s) => s.reports[date ?? '']);
   const setReport = useAppStore((s) => s.setReport);
@@ -342,9 +380,28 @@ export default function ReportDetailScreen() {
   }, [date]);
 
   const handleAddToBacktest = useCallback(() => {
-    // TODO: integrate with backtest-store when available
-    // For now, show a visual confirmation via alert-like feedback
-  }, []);
+    // Add each ticker's best trade to backtest portfolio
+    if (parsedReport?.tickers) {
+      parsedReport.tickers.forEach((t: any) => {
+        addToPortfolio({
+          symbol: t.symbol || 'TSLA',
+          strategy: 'sell_put',
+          otmPct: 5,
+          period: '6mo',
+        });
+      });
+    } else {
+      // Fallback: add default TSLA
+      addToPortfolio({
+        symbol: 'TSLA',
+        strategy: 'sell_put',
+        otmPct: 5,
+        period: '6mo',
+      });
+    }
+    // Navigate to Backtest tab
+    router.navigate('/(tabs)/backtest');
+  }, [parsedReport, addToPortfolio, router]);
 
   // ── Render ──
 
