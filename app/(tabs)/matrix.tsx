@@ -40,27 +40,40 @@ export default function MatrixScreen() {
   const isWide = width >= IPAD_WIDTH;
 
   // ── Store data ──
-  const tslaMatrix = useAppStore((s) => s.tslaMatrix);
-  const dashboardData = useAppStore((s) => s.dashboardData);
-  const setTslaMatrix = useAppStore((s) => s.setTslaMatrix);
+  const matrices = useAppStore((s) => s.matrices);
+  const setMatrix = useAppStore((s) => s.setMatrix);
   const setDashboardData = useAppStore((s) => s.setDashboardData);
   const quotes = useAppStore((s) => s.quotes);
   const [loading, setLoading] = useState(false);
 
-  // Auto-fetch if no matrix data
+  // Auto-fetch if no matrix data for selected ticker
   useEffect(() => {
-    if (!tslaMatrix && !loading) {
+    if (!matrices[selectedTicker] && !loading) {
       setLoading(true);
       fetchDashboardData(GITHUB_OWNER, GITHUB_REPO)
         .then((data) => {
           setDashboardData(data);
-          const rawMatrix = (data as Record<string, unknown>)?.tsla_matrix;
-          const mapped = mapTslaMatrix(rawMatrix); if (mapped) setTslaMatrix(mapped);
+          // Load all matrices
+          const allMatrices = (data as Record<string, unknown>)?.options_matrices as Record<string, unknown> | undefined;
+          if (allMatrices) {
+            for (const [sym, raw] of Object.entries(allMatrices)) {
+              const mapped = mapTslaMatrix(raw);
+              if (mapped) setMatrix(sym, mapped);
+            }
+          }
+          // Fallback: legacy tsla_matrix
+          if (!allMatrices) {
+            const raw = (data as Record<string, unknown>)?.tsla_matrix;
+            if (raw) {
+              const mapped = mapTslaMatrix(raw);
+              if (mapped) setMatrix('TSLA', mapped);
+            }
+          }
         })
         .catch(() => {})
         .finally(() => setLoading(false));
     }
-  }, [tslaMatrix]);
+  }, [selectedTicker, matrices]);
 
   // ── Local UI state ──
   const [selectedTicker, setSelectedTicker] = useState<Ticker>('TSLA');
@@ -69,8 +82,7 @@ export default function MatrixScreen() {
   const [checkedStrikes, setCheckedStrikes] = useState<Set<number>>(new Set());
 
   // ── Resolve matrix data for current ticker ──
-  // Currently only TSLA has matrix data; others show a placeholder message
-  const matrix: StrikeComparison | null = selectedTicker === 'TSLA' ? tslaMatrix : null;
+  const matrix: StrikeComparison | null = matrices[selectedTicker] ?? null;
 
   const currentPrice = matrix?.price ?? quotes[selectedTicker]?.price ?? 0;
 

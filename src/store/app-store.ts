@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { StockQuote, DailyReport, ModelVerdict, StrikeComparison } from '../utils/types';
+import type { StockQuote, DailyReport, StrikeComparison } from '../utils/types';
 
 interface AppState {
   // Live data
@@ -14,7 +14,10 @@ interface AppState {
   // Dashboard data (from data.json)
   dashboardData: Record<string, unknown> | null;
 
-  // Matrix
+  // Options matrices (per ticker)
+  matrices: Record<string, StrikeComparison>;
+
+  // Legacy alias
   tslaMatrix: StrikeComparison | null;
 
   // Loading states
@@ -29,6 +32,7 @@ interface AppState {
   setReport: (date: string, report: DailyReport) => void;
   setLatestReportDate: (date: string) => void;
   setDashboardData: (data: Record<string, unknown>) => void;
+  setMatrix: (symbol: string, matrix: StrikeComparison) => void;
   setTslaMatrix: (matrix: StrikeComparison) => void;
   setLoading: (key: 'isLoadingQuotes' | 'isLoadingReports' | 'isLoadingDashboard', value: boolean) => void;
 }
@@ -40,6 +44,7 @@ export const useAppStore = create<AppState>()((set) => ({
   reports: {},
   latestReportDate: null,
   dashboardData: null,
+  matrices: {},
   tslaMatrix: null,
   isLoadingQuotes: false,
   isLoadingReports: false,
@@ -56,6 +61,16 @@ export const useAppStore = create<AppState>()((set) => ({
     set((s) => ({ reports: { ...s.reports, [date]: report } })),
   setLatestReportDate: (date) => set({ latestReportDate: date }),
   setDashboardData: (data) => set({ dashboardData: data }),
-  setTslaMatrix: (matrix) => set({ tslaMatrix: matrix }),
+  setMatrix: (symbol, matrix) =>
+    set((s) => ({
+      matrices: { ...s.matrices, [symbol]: matrix },
+      // Keep tslaMatrix updated for backward compat
+      tslaMatrix: symbol === 'TSLA' ? matrix : s.tslaMatrix,
+    })),
+  setTslaMatrix: (matrix) =>
+    set((s) => ({
+      tslaMatrix: matrix,
+      matrices: { ...s.matrices, TSLA: matrix },
+    })),
   setLoading: (key, value) => set({ [key]: value }),
 }));

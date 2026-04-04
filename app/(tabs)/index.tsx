@@ -82,7 +82,7 @@ export default function DashboardScreen() {
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
-  const setTslaMatrix = useAppStore((s) => s.setTslaMatrix);
+  const setMatrix = useAppStore((s) => s.setMatrix);
 
   const loadData = useCallback(async () => {
     try {
@@ -90,11 +90,21 @@ export default function DashboardScreen() {
       setLoading('isLoadingDashboard', true);
       const data = await fetchDashboardData(GITHUB_OWNER, GITHUB_REPO);
       setDashboardData(data);
-      // Also store tsla_matrix in app-store so Matrix tab can access it
-      const rawMatrix = (data as Record<string, unknown>)?.tsla_matrix;
-      if (rawMatrix) {
-        const mapped = mapTslaMatrix(rawMatrix);
-        if (mapped) setTslaMatrix(mapped);
+      // Store all options matrices (TSLA, AMZN, NVDA)
+      const allMatrices = (data as Record<string, unknown>)?.options_matrices as Record<string, unknown> | undefined;
+      if (allMatrices) {
+        for (const [sym, raw] of Object.entries(allMatrices)) {
+          const mapped = mapTslaMatrix(raw);
+          if (mapped) setMatrix(sym, mapped);
+        }
+      }
+      // Fallback: legacy tsla_matrix field
+      if (!allMatrices) {
+        const rawMatrix = (data as Record<string, unknown>)?.tsla_matrix;
+        if (rawMatrix) {
+          const mapped = mapTslaMatrix(rawMatrix);
+          if (mapped) setMatrix('TSLA', mapped);
+        }
       }
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Failed to load dashboard data';
@@ -102,7 +112,7 @@ export default function DashboardScreen() {
     } finally {
       setLoading('isLoadingDashboard', false);
     }
-  }, [setDashboardData, setTslaMatrix, setLoading]);
+  }, [setDashboardData, setMatrix, setLoading]);
 
   useEffect(() => {
     loadData();
