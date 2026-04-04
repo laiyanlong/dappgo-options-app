@@ -1037,9 +1037,11 @@ const swipeStyles = StyleSheet.create({
 });
 
 // ── Format saved-at timestamp ──
-function formatSavedAt(iso: string): string {
+function formatSavedAt(iso: string | undefined | null): string {
+  if (!iso) return 'recently';
   try {
     const d = new Date(iso);
+    if (isNaN(d.getTime())) return 'recently';
     const now = new Date();
     const diffMs = now.getTime() - d.getTime();
     const diffMin = Math.floor(diffMs / 60000);

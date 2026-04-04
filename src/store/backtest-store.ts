@@ -68,12 +68,23 @@ export const useBacktestStore = create<BacktestState>()(
       clearPortfolio: () => set({ portfolio: [] }),
       setResults: (results) => set({ results }),
       saveResult: (result) =>
-        set((s) => ({
-          savedResults: [
-            ...s.savedResults,
-            { ...result, savedAt: new Date().toISOString() },
-          ],
-        })),
+        set((s) => {
+          // Prevent exact duplicates (same symbol + strategy + trades + pnl)
+          const isDuplicate = s.savedResults.some(
+            (sr) =>
+              sr.input.symbol === result.input.symbol &&
+              sr.input.strategy === result.input.strategy &&
+              sr.trades === result.trades &&
+              sr.totalPnl === result.totalPnl
+          );
+          if (isDuplicate) return s;
+          return {
+            savedResults: [
+              ...s.savedResults,
+              { ...result, savedAt: new Date().toISOString() },
+            ],
+          };
+        }),
       removeSavedResult: (index) =>
         set((s) => ({
           savedResults: s.savedResults.filter((_, i) => i !== index),
