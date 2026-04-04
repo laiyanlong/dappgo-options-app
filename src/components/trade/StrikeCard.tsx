@@ -27,6 +27,8 @@ interface StrikeCardProps {
   strategy?: string;
   /** Expiry date string for watchlist */
   expiry?: string;
+  /** Compact 2-row layout for narrow screens */
+  compact?: boolean;
 }
 
 /**
@@ -66,6 +68,7 @@ export function StrikeCard({
   symbol = '',
   strategy = 'sell_put',
   expiry = '',
+  compact = false,
 }: StrikeCardProps) {
   const { colors } = useTheme();
   const stars = calculateStarRating(entry);
@@ -100,6 +103,65 @@ export function StrikeCard({
   const borderColor = isBest ? colors.gold : colors.border;
   const bgTint = isBest ? `${colors.gold}10` : undefined;
 
+  // ── Compact 2-row layout for phones ──
+  if (compact) {
+    return (
+      <Card
+        style={[
+          styles.card,
+          compactStyles.card,
+          {
+            borderColor,
+            borderWidth: isBest ? 2 : 1,
+            backgroundColor: bgTint,
+          },
+        ]}
+      >
+        {/* Row 1: Strike, OTM, Bid, Stars */}
+        <View style={compactStyles.row}>
+          <Text style={[compactStyles.strike, { color: colors.textHeading }]}>
+            {formatDollar(entry.strike)}
+          </Text>
+          <Text style={[compactStyles.otm, { color: colors.textMuted }]}>
+            {(entry.otmPct ?? 0) >= 0 ? '-' : '+'}
+            {Math.abs(entry.otmPct ?? 0).toFixed(1)}% OTM
+          </Text>
+          <Text style={[compactStyles.bid, { color: colors.textHeading }]}>
+            Bid {formatDollar(entry.bid)}
+          </Text>
+          <StarRating score={stars} size={12} />
+        </View>
+        {/* Row 2: IV, POP, Ann, actions */}
+        <View style={compactStyles.row}>
+          <Text style={[compactStyles.metric, { color: colors.gold }]}>
+            IV {(entry.iv ?? 0).toFixed(1)}%
+          </Text>
+          <Text style={[compactStyles.metric, { color: popColor }]}>
+            POP {(entry.pop ?? 0).toFixed(1)}%
+          </Text>
+          <Text style={[compactStyles.metric, { color: colors.accent }]}>
+            Ann {(entry.annualized ?? 0).toFixed(1)}%
+          </Text>
+          <View style={compactStyles.actions}>
+            {symbol !== '' && (
+              <TouchableOpacity onPress={toggleWatchlist} activeOpacity={0.7} style={compactStyles.iconBtn}>
+                <Ionicons
+                  name={isInWatchlist ? 'heart' : 'heart-outline'}
+                  size={14}
+                  color={isInWatchlist ? colors.negative : colors.textMuted}
+                />
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity onPress={onBacktest} activeOpacity={0.7} style={compactStyles.iconBtn}>
+              <Ionicons name="play" size={14} color={colors.accent} />
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Card>
+    );
+  }
+
+  // ── Full layout (iPad / desktop) ──
   return (
     <Card
       style={[
@@ -243,6 +305,45 @@ export function StrikeCard({
 
 /** Export for use in Matrix screen comparison logic */
 export { calculateStarRating };
+
+const compactStyles = StyleSheet.create({
+  card: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginVertical: 2,
+  },
+  strike: {
+    fontSize: 15,
+    fontWeight: '700',
+    minWidth: 70,
+  },
+  otm: {
+    fontSize: 11,
+    minWidth: 60,
+  },
+  bid: {
+    fontSize: 12,
+    fontWeight: '600',
+    flex: 1,
+  },
+  metric: {
+    fontSize: 11,
+    fontWeight: '600',
+    flex: 1,
+  },
+  actions: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  iconBtn: {
+    padding: 4,
+  },
+});
 
 const styles = StyleSheet.create({
   card: {

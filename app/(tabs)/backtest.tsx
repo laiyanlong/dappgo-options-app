@@ -22,6 +22,7 @@ import { Card } from '../../src/components/ui/Card';
 import { SegmentedControl } from '../../src/components/ui/SegmentedControl';
 import { StarRating } from '../../src/components/ui/StarRating';
 import { PnLChart } from '../../src/components/charts/PnLChart';
+import { WinRateCircle } from '../../src/components/charts/WinRateCircle';
 import { useBacktestStore } from '../../src/store/backtest-store';
 import type { SavedBacktestResult } from '../../src/store/backtest-store';
 import { useSettingsStore } from '../../src/store/settings-store';
@@ -653,80 +654,77 @@ export default function BacktestScreen() {
             </View>
           )}
 
-          {/* ── Summary Card(s) ── */}
-          {results.map((r, idx) => (
-            <Card key={idx}>
-              <View style={styles.summaryHeader}>
-                <View>
-                  <Text style={[styles.summaryTicker, { color: colors.textHeading }]}>
-                    {r.input.symbol}
-                  </Text>
-                  <Text style={[styles.summaryStrategy, { color: colors.textMuted }]}>
-                    {STRATEGIES.find((s) => s.key === r.input.strategy)?.label ?? r.input.strategy}
-                    {r.input.otmPct ? ` | ${r.input.otmPct}% OTM` : ''}
-                    {' | '}{r.input.period}
-                  </Text>
+          {/* ── Professional Result Card(s) ── */}
+          {results.map((r, idx) => {
+            const isProfitable = r.totalPnl >= 0;
+            const bgTint = isProfitable ? `${colors.positive}08` : `${colors.negative}08`;
+
+            return (
+              <Card
+                key={idx}
+                style={{ backgroundColor: bgTint }}
+              >
+                <View style={styles.summaryHeader}>
+                  <View>
+                    <Text style={[styles.summaryTicker, { color: colors.textHeading }]}>
+                      {r.input.symbol}
+                    </Text>
+                    <Text style={[styles.summaryStrategy, { color: colors.textMuted }]}>
+                      {STRATEGIES.find((s) => s.key === r.input.strategy)?.label ?? r.input.strategy}
+                      {r.input.otmPct ? ` | ${r.input.otmPct}% OTM` : ''}
+                      {' | '}{r.input.period}
+                    </Text>
+                  </View>
+                  <StarRating score={r.rating} size={18} />
                 </View>
-                <StarRating score={r.rating} size={18} />
-              </View>
 
-              {/* Metrics grid */}
-              <View style={styles.metricsGrid}>
-                <MetricCell
-                  label="Total P&L"
-                  value={formatDollar(r.totalPnl)}
-                  color={r.totalPnl >= 0 ? colors.positive : colors.negative}
-                />
-                <MetricCell
-                  label="Win Rate"
-                  value={`${r.winRate}%`}
-                  color={r.winRate >= 55 ? colors.positive : colors.negative}
-                />
-                <MetricCell
-                  label="Sharpe"
-                  value={r.sharpe.toFixed(2)}
-                  color={r.sharpe >= 1 ? colors.positive : r.sharpe >= 0.5 ? colors.gold : colors.negative}
-                />
-                <MetricCell
-                  label="Max DD"
-                  value={formatDollar(r.maxDrawdown)}
-                  color={colors.negative}
-                />
-                <MetricCell
-                  label="Avg Win"
-                  value={formatDollar(r.avgWin)}
-                  color={colors.positive}
-                />
-                <MetricCell
-                  label="Avg Loss"
-                  value={formatDollar(Math.abs(r.avgLoss))}
-                  color={colors.negative}
-                />
-                <MetricCell
-                  label="Trades"
-                  value={`${r.trades}`}
-                  color={colors.text}
-                />
-                <MetricCell
-                  label="Profit Factor"
-                  value={r.profitFactor >= 999 ? 'INF' : r.profitFactor.toFixed(2)}
-                  color={r.profitFactor >= 1.5 ? colors.positive : colors.gold}
-                />
-              </View>
+                {/* Hero: Win Rate Circle */}
+                <View style={styles.heroCircle}>
+                  <WinRateCircle percentage={r.winRate} size={120} />
+                </View>
 
-              {/* P&L Curve (SVG chart) */}
-              <View style={[styles.curveContainer, { borderColor: colors.border }]}>
-                <Text style={[styles.curveLabel, { color: colors.textMuted }]}>
-                  P&L CURVE
-                </Text>
-                <PnLChart
-                  data={r.pnlCurve}
-                  width={SCREEN_WIDTH - 64}
-                  height={200}
-                />
-              </View>
-            </Card>
-          ))}
+                {/* 2x2 metric cards */}
+                <View style={styles.metricGrid2x2}>
+                  <View style={[styles.metricCard2x2, { backgroundColor: colors.background, borderColor: colors.border }]}>
+                    <Text style={[styles.metricCardLabel, { color: colors.textMuted }]}>Total P&L</Text>
+                    <Text style={[styles.metricCardValue, { color: isProfitable ? colors.positive : colors.negative }]}>
+                      {formatDollar(r.totalPnl)}
+                    </Text>
+                  </View>
+                  <View style={[styles.metricCard2x2, { backgroundColor: colors.background, borderColor: colors.border }]}>
+                    <Text style={[styles.metricCardLabel, { color: colors.textMuted }]}>Sharpe</Text>
+                    <Text style={[styles.metricCardValue, { color: r.sharpe >= 1 ? colors.positive : r.sharpe >= 0.5 ? colors.gold : colors.negative }]}>
+                      {r.sharpe.toFixed(2)}
+                    </Text>
+                  </View>
+                  <View style={[styles.metricCard2x2, { backgroundColor: colors.background, borderColor: colors.border }]}>
+                    <Text style={[styles.metricCardLabel, { color: colors.textMuted }]}>Max Drawdown</Text>
+                    <Text style={[styles.metricCardValue, { color: colors.negative }]}>
+                      {formatDollar(r.maxDrawdown)}
+                    </Text>
+                  </View>
+                  <View style={[styles.metricCard2x2, { backgroundColor: colors.background, borderColor: colors.border }]}>
+                    <Text style={[styles.metricCardLabel, { color: colors.textMuted }]}>Profit Factor</Text>
+                    <Text style={[styles.metricCardValue, { color: r.profitFactor >= 1.5 ? colors.positive : colors.gold }]}>
+                      {r.profitFactor >= 999 ? 'INF' : r.profitFactor.toFixed(2)}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Full-width P&L Curve */}
+                <View style={[styles.curveContainer, { borderColor: colors.border }]}>
+                  <Text style={[styles.curveLabel, { color: colors.textMuted }]}>
+                    P&L CURVE
+                  </Text>
+                  <PnLChart
+                    data={r.pnlCurve}
+                    width={SCREEN_WIDTH - 64}
+                    height={200}
+                  />
+                </View>
+              </Card>
+            );
+          })}
 
           {/* ── Comparison Table (multi-result) ── */}
           {results.length > 1 && bestInColumn && (
@@ -1227,7 +1225,39 @@ const styles = StyleSheet.create<Record<string, any>>({
   summaryTicker: { fontSize: 20, fontWeight: '800' },
   summaryStrategy: { fontSize: 12, marginTop: 2 },
 
-  // Metrics grid
+  // Hero win rate circle
+  heroCircle: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  // 2x2 metric grid
+  metricGrid2x2: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 8,
+  },
+  metricCard2x2: {
+    width: '48%',
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+    alignItems: 'center',
+  } as const,
+  metricCardLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  metricCardValue: {
+    fontSize: 18,
+    fontWeight: '800',
+  },
+
+  // Metrics grid (legacy / comparison table)
   metricsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',

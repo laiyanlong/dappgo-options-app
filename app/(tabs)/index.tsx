@@ -23,6 +23,7 @@ import { formatDollar, formatPct, formatStrategy } from '../../src/utils/format'
 import { mapTslaMatrix } from '../../src/data/mappers';
 import { probabilityOfProfit } from '../../src/engine/pop';
 import { SparkLine } from '../../src/components/charts/SparkLine';
+import { TickerTape } from '../../src/components/charts/TickerTape';
 import { Card } from '../../src/components/ui/Card';
 import { UpgradePrompt } from '../../src/components/ui/UpgradePrompt';
 import { PoweredByDappGo } from '../../src/components/ui/PoweredByDappGo';
@@ -303,6 +304,18 @@ export default function DashboardScreen() {
       }
       showsVerticalScrollIndicator={false}
     >
+      {/* ── Ticker Tape (Bloomberg-style scrolling bar) ── */}
+      {livePrices.length > 0 && (
+        <TickerTape
+          prices={livePrices.map((lp) => ({
+            symbol: lp.symbol,
+            price: lp.price,
+            changePct: lp.change_pct,
+          }))}
+          backgroundColor={colors.backgroundAlt}
+        />
+      )}
+
       {/* ── Header ── */}
       <Text style={[typography.h1, { color: colors.textHeading, marginBottom: spacing.xs }]}>
         Dashboard
@@ -442,83 +455,105 @@ export default function DashboardScreen() {
         </View>
       )}
 
-      {/* ── Today's Top Picks ── */}
+      {/* ── Today's Top Picks (Horizontal Carousel) ── */}
       {topPicks.length > 0 && (
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.textHeading }]}>
             Today's Top Picks
           </Text>
-          {topPicks.map((pick, idx) => (
-            <Card key={`${pick.symbol}-${pick.strike}-${idx}`}>
-              <View style={styles.pickHeader}>
-                <Text style={[styles.pickSymbol, { color: colors.gold }]}>
-                  {pick.symbol}
-                </Text>
-                <Text style={[styles.pickStrategy, { color: colors.accent }]}>
-                  {formatStrategy(pick.strategy)}
-                </Text>
-              </View>
-
-              <View style={styles.pickGrid}>
-                <View style={styles.pickCell}>
-                  <Text style={[styles.pickLabel, { color: colors.textMuted }]}>Strike</Text>
-                  <Text style={[styles.pickNum, { color: colors.textHeading }]}>
-                    {formatDollar(pick.strike)}
-                  </Text>
-                </View>
-                <View style={styles.pickCell}>
-                  <Text style={[styles.pickLabel, { color: colors.textMuted }]}>Premium</Text>
-                  <Text style={[styles.pickNum, { color: colors.positive }]}>
-                    {formatDollar(pick.premium)}
-                  </Text>
-                </View>
-                <View style={styles.pickCell}>
-                  <Text style={[styles.pickLabel, { color: colors.textMuted }]}>POP</Text>
-                  <Text style={[styles.pickNum, { color: colors.textHeading }]}>
-                    {pick.pop != null ? formatPct(pick.pop, 0) : 'N/A'}
-                  </Text>
-                </View>
-                <View style={styles.pickCell}>
-                  <Text style={[styles.pickLabel, { color: colors.textMuted }]}>Ann. Return</Text>
-                  <Text style={[styles.pickNum, { color: colors.positive }]}>
-                    {formatPct(pick.annualized, 1)}
-                  </Text>
-                </View>
-              </View>
-
-              {pick.expiry && (
-                <Text style={[typography.caption, { color: colors.textMuted, marginTop: spacing.xs }]}>
-                  Exp: {pick.expiry}{pick.dte != null ? ` (${pick.dte}d)` : ''}
-                </Text>
-              )}
-
-              {/* Quick Backtest button */}
-              <TouchableOpacity
-                style={[styles.backtestBtn, { borderColor: colors.accent }]}
-                activeOpacity={0.7}
-                onPress={() => {
-                  // Map strategy string to BacktestInput strategy type
-                  const strategyKey = pick.strategy.toLowerCase().replace(/[\s-]+/g, '_');
-                  const validStrategies = ['sell_put', 'sell_call', 'iron_condor', 'bull_put_spread', 'bear_call_spread'] as const;
-                  const strategy = validStrategies.find((s) => strategyKey.includes(s)) ?? 'sell_put';
-
-                  backtestSetMode('simple');
-                  backtestSetSimpleInput({
-                    symbol: pick.symbol,
-                    strategy,
-                    period: '6mo',
-                  });
-                  backtestSetPendingAutoRun(true);
-                  lightHaptic();
-                  router.navigate('/(tabs)/backtest');
-                }}
+          <FlatList
+            data={topPicks}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            snapToInterval={288}
+            decelerationRate="fast"
+            contentContainerStyle={styles.pickCarouselContent}
+            keyExtractor={(pick, idx) => `${pick.symbol}-${pick.strike}-${idx}`}
+            renderItem={({ item: pick, index: idx }) => (
+              <View
+                style={[
+                  styles.pickCard,
+                  {
+                    backgroundColor: colors.card,
+                    borderColor: idx === 0 ? colors.gold : colors.border,
+                    borderWidth: idx === 0 ? 2 : 1,
+                  },
+                ]}
               >
-                <Text style={[styles.backtestBtnText, { color: colors.accent }]}>
-                  Backtest
-                </Text>
-              </TouchableOpacity>
-            </Card>
-          ))}
+                {idx === 0 && (
+                  <View style={[styles.pickBestBadge, { backgroundColor: colors.gold }]}>
+                    <Text style={styles.pickBestBadgeText}>#1 PICK</Text>
+                  </View>
+                )}
+
+                <View style={styles.pickHeader}>
+                  <Text style={[styles.pickSymbol, { color: colors.gold }]}>
+                    {pick.symbol}
+                  </Text>
+                  <Text style={[styles.pickStrategy, { color: colors.accent }]}>
+                    {formatStrategy(pick.strategy)}
+                  </Text>
+                </View>
+
+                <View style={styles.pickGrid}>
+                  <View style={styles.pickCell}>
+                    <Text style={[styles.pickLabel, { color: colors.textMuted }]}>Strike</Text>
+                    <Text style={[styles.pickNum, { color: colors.textHeading }]}>
+                      {formatDollar(pick.strike)}
+                    </Text>
+                  </View>
+                  <View style={styles.pickCell}>
+                    <Text style={[styles.pickLabel, { color: colors.textMuted }]}>Premium</Text>
+                    <Text style={[styles.pickNum, { color: colors.positive }]}>
+                      {formatDollar(pick.premium)}
+                    </Text>
+                  </View>
+                  <View style={styles.pickCell}>
+                    <Text style={[styles.pickLabel, { color: colors.textMuted }]}>POP</Text>
+                    <Text style={[styles.pickNum, { color: colors.textHeading }]}>
+                      {pick.pop != null ? formatPct(pick.pop, 0) : 'N/A'}
+                    </Text>
+                  </View>
+                  <View style={styles.pickCell}>
+                    <Text style={[styles.pickLabel, { color: colors.textMuted }]}>Ann.</Text>
+                    <Text style={[styles.pickNum, { color: colors.positive }]}>
+                      {formatPct(pick.annualized, 1)}
+                    </Text>
+                  </View>
+                </View>
+
+                {pick.expiry && (
+                  <Text style={[typography.caption, { color: colors.textMuted, marginTop: spacing.xs }]}>
+                    Exp: {pick.expiry}{pick.dte != null ? ` (${pick.dte}d)` : ''}
+                  </Text>
+                )}
+
+                <TouchableOpacity
+                  style={[styles.backtestBtn, { borderColor: colors.accent }]}
+                  activeOpacity={0.7}
+                  onPress={() => {
+                    const strategyKey = pick.strategy.toLowerCase().replace(/[\s-]+/g, '_');
+                    const validStrategies = ['sell_put', 'sell_call', 'iron_condor', 'bull_put_spread', 'bear_call_spread'] as const;
+                    const strategy = validStrategies.find((s) => strategyKey.includes(s)) ?? 'sell_put';
+
+                    backtestSetMode('simple');
+                    backtestSetSimpleInput({
+                      symbol: pick.symbol,
+                      strategy,
+                      period: '6mo',
+                    });
+                    backtestSetPendingAutoRun(true);
+                    lightHaptic();
+                    router.navigate('/(tabs)/backtest');
+                  }}
+                >
+                  <Text style={[styles.backtestBtnText, { color: colors.accent }]}>
+                    Backtest
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          />
         </View>
       )}
 
@@ -541,7 +576,7 @@ export default function DashboardScreen() {
 
 // ── Styles ──
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create<Record<string, any>>({
   container: {
     flex: 1,
     padding: spacing.lg,
@@ -767,7 +802,33 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 
-  // Top picks
+  // Top picks carousel
+  pickCarouselContent: {
+    paddingRight: spacing.lg,
+    paddingVertical: spacing.xs,
+  },
+  pickCard: {
+    width: 280,
+    padding: spacing.md,
+    borderRadius: borderRadius.lg,
+    marginRight: spacing.sm,
+  },
+  pickBestBadge: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    paddingVertical: 3,
+    borderTopLeftRadius: borderRadius.lg - 1,
+    borderTopRightRadius: borderRadius.lg - 1,
+    alignItems: 'center',
+  },
+  pickBestBadgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#1a1a2e',
+    letterSpacing: 1,
+  },
   pickHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',

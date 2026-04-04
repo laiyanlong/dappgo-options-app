@@ -205,6 +205,7 @@ export default function MatrixScreen() {
           symbol={selectedTicker}
           strategy={strategyLabel}
           expiry={activeExpiryDate}
+          compact={!isWide}
         />
       </View>
     ),
@@ -492,7 +493,7 @@ function CompareInsight({
 
 // ── Styles ──
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create<Record<string, any>>({
   container: {
     flex: 1,
   },

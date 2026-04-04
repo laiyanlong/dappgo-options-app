@@ -9,6 +9,8 @@ import {
   ActivityIndicator,
   RefreshControl,
   StyleSheet,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -22,6 +24,7 @@ import { formatDate, formatPct, formatDollar } from '../../src/utils/format';
 import { GITHUB_OWNER, GITHUB_REPO, DEFAULT_TICKERS } from '../../src/utils/constants';
 import { Card } from '../../src/components/ui/Card';
 import { Badge } from '../../src/components/ui/Badge';
+import { EmptyState } from '../../src/components/ui/EmptyState';
 import type { DailyReport, TickerReport } from '../../src/utils/types';
 
 // ── Filter chips ──
@@ -228,67 +231,93 @@ export default function ReportsScreen() {
 
   // ── Render helpers ──
 
+  // Determine if market was net up or down for a report
+  const reportMarketDirection = useCallback((report: DailyReport | undefined): 'up' | 'down' | 'neutral' => {
+    if (!report || report.tickers.length === 0) return 'neutral';
+    const avg = report.tickers.reduce((sum, t) => sum + t.changePct, 0) / report.tickers.length;
+    if (avg > 0.1) return 'up';
+    if (avg < -0.1) return 'down';
+    return 'neutral';
+  }, []);
+
+  // Emoji verdict per ticker: green/yellow/red circle
+  const tickerEmoji = useCallback((t: TickerReport): string => {
+    if (t.changePct > 1) return '\uD83D\uDFE2'; // green
+    if (t.changePct > -1) return '\uD83D\uDFE1'; // yellow
+    return '\uD83D\uDD34'; // red
+  }, []);
+
   const renderCard = useCallback(
     ({ item: date }: { item: string }) => {
       const report = reports[date];
       const trade = report ? bestTradeLabel(report) : null;
+      const direction = reportMarketDirection(report);
+      const barColor = direction === 'up' ? colors.positive : direction === 'down' ? colors.negative : colors.border;
 
       return (
-        <Card
+        <TouchableOpacity
+          activeOpacity={0.8}
           onPress={() => router.push({ pathname: '/report/[date]', params: { date } })}
-          style={{ borderColor: colors.border }}
+          style={[
+            styles.reportCard,
+            {
+              backgroundColor: colors.card,
+              borderColor: colors.border,
+            },
+          ]}
         >
-          {/* Header row */}
-          <View style={styles.cardHeader}>
-            <Text style={[styles.cardDate, { color: colors.textHeading }]}>
-              {formatDate(date)}
-            </Text>
-            <Text style={[styles.cardDateFull, { color: colors.textMuted }]}>{date}</Text>
+          {/* Colored left edge bar */}
+          <View style={[styles.leftBar, { backgroundColor: barColor }]} />
+
+          <View style={styles.reportCardContent}>
+            {/* Header row */}
+            <View style={styles.cardHeader}>
+              <Text style={[styles.cardDate, { color: colors.textHeading }]}>
+                {formatDate(date)}
+              </Text>
+              <Text style={[styles.cardDateFull, { color: colors.textMuted }]}>{date}</Text>
+            </View>
+
+            {/* Ticker summaries with emoji verdicts */}
+            {report ? (
+              <View style={styles.tickerGrid}>
+                {report.tickers.map((t) => {
+                  const iv = ivRankBadge(t.ivRank);
+                  return (
+                    <View key={t.symbol} style={[styles.tickerRow, { borderBottomColor: colors.border }]}>
+                      <Text style={styles.tickerEmojiVerdict}>{tickerEmoji(t)}</Text>
+                      <Text style={[styles.tickerSymbol, { color: colors.gold }]}>{t.symbol}</Text>
+                      <Text style={[styles.tickerPrice, { color: colors.textHeading }]}>
+                        {formatDollar(t.price)}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.tickerChange,
+                          { color: t.changePct >= 0 ? colors.positive : colors.negative },
+                        ]}
+                      >
+                        {formatPct(t.changePct)}
+                      </Text>
+                      <Badge label={iv.label} color={iv.color} />
+                    </View>
+                  );
+                })}
+              </View>
+            ) : (
+              <ActivityIndicator size="small" color={colors.accent} style={{ marginVertical: 8 }} />
+            )}
+
+            {/* Best trade inline */}
+            {trade && (
+              <Text style={[styles.bestTradeInline, { color: colors.accent }]}>
+                {'\u2605'} {trade}
+              </Text>
+            )}
           </View>
-
-          {/* Ticker summaries */}
-          {report ? (
-            <View style={styles.tickerGrid}>
-              {report.tickers.map((t) => {
-                const iv = ivRankBadge(t.ivRank);
-                return (
-                  <View key={t.symbol} style={[styles.tickerRow, { borderBottomColor: colors.border }]}>
-                    <Text style={[styles.tickerSymbol, { color: colors.gold }]}>{t.symbol}</Text>
-                    <Text style={[styles.tickerPrice, { color: colors.textHeading }]}>
-                      {formatDollar(t.price)}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.tickerChange,
-                        { color: t.changePct >= 0 ? colors.positive : colors.negative },
-                      ]}
-                    >
-                      {formatPct(t.changePct)}
-                    </Text>
-                    <Badge label={iv.label} color={iv.color} />
-                    <Text style={styles.verdictEmoji}>{verdictEmoji(t)}</Text>
-                  </View>
-                );
-              })}
-            </View>
-          ) : (
-            <ActivityIndicator size="small" color={colors.accent} style={{ marginVertical: 8 }} />
-          )}
-
-          {/* Best trade */}
-          {trade && (
-            <View style={[styles.bestTradeRow, { backgroundColor: colors.backgroundAlt }]}>
-              <Text style={[styles.bestTradeLabel, { color: colors.textMuted }]}>Best trade</Text>
-              <Text style={[styles.bestTradeValue, { color: colors.accent }]}>{trade}</Text>
-            </View>
-          )}
-
-          {/* Tap hint */}
-          <Text style={[styles.tapHint, { color: colors.textMuted }]}>Tap for details →</Text>
-        </Card>
+        </TouchableOpacity>
       );
     },
-    [reports, colors, router]
+    [reports, colors, router, reportMarketDirection, tickerEmoji]
   );
 
   // ── Screen ──
@@ -317,91 +346,96 @@ export default function ReportsScreen() {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top + 8 }]}>
-      {/* Title */}
-      <Text style={[styles.title, { color: colors.textHeading }]}>Reports</Text>
-      <Text style={[styles.subtitle, { color: colors.textMuted }]}>
-        {filteredDates.length} report{filteredDates.length !== 1 ? 's' : ''}
-      </Text>
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top + 8 }]}>
+        {/* Title */}
+        <Text style={[styles.title, { color: colors.textHeading }]}>Reports</Text>
+        <Text style={[styles.subtitle, { color: colors.textMuted }]}>
+          {filteredDates.length} report{filteredDates.length !== 1 ? 's' : ''}
+        </Text>
 
-      {/* Filter bar — ticker chips */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.filterRow}
-        contentContainerStyle={styles.filterContent}
-      >
-        {TICKER_FILTERS.map((t) => (
-          <Chip
-            key={t}
-            label={t}
-            active={tickerFilter === t}
-            onPress={() => setTickerFilter(t)}
-            accentColor={colors.accent}
-            textColor={colors.textMuted}
-            borderColor={colors.border}
-          />
-        ))}
-        <View style={styles.filterSpacer} />
-        {DATE_RANGE_FILTERS.map((r) => (
-          <Chip
-            key={r}
-            label={r}
-            active={dateRange === r}
-            onPress={() => setDateRange(r)}
-            accentColor={colors.gold}
-            textColor={colors.textMuted}
-            borderColor={colors.border}
-          />
-        ))}
-      </ScrollView>
+        {/* Filter bar — ticker chips */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.filterRow}
+          contentContainerStyle={styles.filterContent}
+        >
+          {TICKER_FILTERS.map((t) => (
+            <Chip
+              key={t}
+              label={t}
+              active={tickerFilter === t}
+              onPress={() => setTickerFilter(t)}
+              accentColor={colors.accent}
+              textColor={colors.textMuted}
+              borderColor={colors.border}
+            />
+          ))}
+          <View style={styles.filterSpacer} />
+          {DATE_RANGE_FILTERS.map((r) => (
+            <Chip
+              key={r}
+              label={r}
+              active={dateRange === r}
+              onPress={() => setDateRange(r)}
+              accentColor={colors.gold}
+              textColor={colors.textMuted}
+              borderColor={colors.border}
+            />
+          ))}
+        </ScrollView>
 
-      {/* Search bar */}
-      <View style={[styles.searchContainer, { borderColor: colors.border, backgroundColor: colors.card }]}>
-        <Ionicons name="search" size={16} color={colors.textMuted} style={styles.searchIcon} />
-        <TextInput
-          style={[styles.searchInput, { color: colors.textHeading }]}
-          placeholder="Search reports..."
-          placeholderTextColor={colors.textMuted}
-          value={searchQuery}
-          onChangeText={handleSearchChange}
-          autoCorrect={false}
-          autoCapitalize="none"
-          returnKeyType="search"
+        {/* Search bar */}
+        <View style={[styles.searchContainer, { borderColor: colors.border, backgroundColor: colors.card }]}>
+          <Ionicons name="search" size={16} color={colors.textMuted} style={styles.searchIcon} />
+          <TextInput
+            style={[styles.searchInput, { color: colors.textHeading }]}
+            placeholder="Search reports..."
+            placeholderTextColor={colors.textMuted}
+            value={searchQuery}
+            onChangeText={handleSearchChange}
+            autoCorrect={false}
+            autoCapitalize="none"
+            returnKeyType="done"
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => { setSearchQuery(''); setDebouncedQuery(''); }} activeOpacity={0.7}>
+              <Ionicons name="close-circle" size={18} color={colors.textMuted} />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Report list */}
+        <FlatList
+          data={filteredDates}
+          keyExtractor={(d) => d}
+          renderItem={renderCard}
+          contentContainerStyle={styles.list}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          refreshControl={
+            <RefreshControl
+              refreshing={isLoading}
+              onRefresh={loadDates}
+              tintColor={colors.accent}
+            />
+          }
+          ListEmptyComponent={
+            <EmptyState emoji="📰" message="No reports found" hint="Try adjusting your filters or pull down to refresh" />
+          }
         />
-        {searchQuery.length > 0 && (
-          <TouchableOpacity onPress={() => { setSearchQuery(''); setDebouncedQuery(''); }} activeOpacity={0.7}>
-            <Ionicons name="close-circle" size={18} color={colors.textMuted} />
-          </TouchableOpacity>
-        )}
       </View>
-
-      {/* Report list */}
-      <FlatList
-        data={filteredDates}
-        keyExtractor={(d) => d}
-        renderItem={renderCard}
-        contentContainerStyle={styles.list}
-        refreshControl={
-          <RefreshControl
-            refreshing={isLoading}
-            onRefresh={loadDates}
-            tintColor={colors.accent}
-          />
-        }
-        ListEmptyComponent={
-          <Text style={[styles.emptyText, { color: colors.textMuted }]}>
-            No reports found for this filter.
-          </Text>
-        }
-      />
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
 // ── Styles ──
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create<Record<string, any>>({
   container: { flex: 1, paddingTop: 16 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 },
   title: { fontSize: 28, fontWeight: '700', marginTop: 8, paddingHorizontal: 16, marginBottom: 2 },
@@ -458,21 +492,28 @@ const styles = StyleSheet.create({
   tickerSymbol: { fontSize: 14, fontWeight: '700', width: 48 },
   tickerPrice: { fontSize: 14, fontWeight: '600', width: 72 },
   tickerChange: { fontSize: 13, fontWeight: '600', width: 52, textAlign: 'right' },
-  verdictEmoji: { fontSize: 16, marginLeft: 4 },
+  tickerEmojiVerdict: { fontSize: 12, width: 20 },
 
-  bestTradeRow: {
+  // Redesigned report card
+  reportCard: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    borderRadius: 8,
-    marginBottom: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 12,
+    overflow: 'hidden',
   },
-  bestTradeLabel: { fontSize: 12, fontWeight: '600' },
-  bestTradeValue: { fontSize: 13, fontWeight: '700', flex: 1 },
-
-  tapHint: { fontSize: 11, textAlign: 'right' },
+  leftBar: {
+    width: 4,
+  },
+  reportCardContent: {
+    flex: 1,
+    padding: 16,
+  },
+  bestTradeInline: {
+    fontSize: 13,
+    fontWeight: '700',
+    marginTop: 4,
+  },
 
   // States
   loadingText: { fontSize: 14, marginTop: 12 },
