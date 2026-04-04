@@ -56,6 +56,7 @@ function RootLayoutNav() {
         <StatusBar barStyle="light-content" />
         <Stack>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="report/[date]" options={{ headerShown: false }} />
           <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
         </Stack>
       </NavThemeProvider>

@@ -1,153 +1,549 @@
-import React from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
-  ScrollView,
   View,
   Text,
-  StyleSheet,
+  FlatList,
+  ScrollView,
   TouchableOpacity,
+  StyleSheet,
+  useWindowDimensions,
 } from 'react-native';
 import { useTheme } from '../../src/theme';
-import { Card } from '../../src/components/ui/Card';
+import { useAppStore } from '../../src/store/app-store';
+import { useBacktestStore } from '../../src/store/backtest-store';
+import { SegmentedControl } from '../../src/components/ui/SegmentedControl';
+import { StrikeCard, calculateStarRating } from '../../src/components/trade/StrikeCard';
+import { formatDollar, formatDate, daysUntil } from '../../src/utils/format';
+import type { OptionEntry, StrikeComparison } from '../../src/utils/types';
 
-const TICKERS = ['TSLA', 'NVDA', 'AAPL', 'AMZN'];
-const EXPIRIES = ['Apr 11', 'Apr 18', 'Apr 25', 'May 2'];
+// ── Supported tickers (extend as matrix data grows) ──
+const TICKERS = ['TSLA', 'AMZN', 'NVDA'] as const;
+type Ticker = (typeof TICKERS)[number];
 
-const STRIKES = [
-  { strike: 340, call: 24.50, put: 2.80, callDelta: 0.82, putDelta: -0.18, iv: 52 },
-  { strike: 350, call: 16.20, put: 4.30, callDelta: 0.68, putDelta: -0.32, iv: 48 },
-  { strike: 360, call: 9.80, put: 7.90, callDelta: 0.50, putDelta: -0.50, iv: 45 },
-  { strike: 370, call: 5.10, put: 13.20, callDelta: 0.32, putDelta: -0.68, iv: 47 },
-  { strike: 380, call: 2.40, put: 20.50, callDelta: 0.18, putDelta: -0.82, iv: 51 },
-];
+// ── Type toggle options ──
+const TYPE_SEGMENTS = ['Sell Put', 'Sell Call'];
+
+// ── iPad breakpoint ──
+const IPAD_WIDTH = 768;
 
 export default function MatrixScreen() {
   const { colors } = useTheme();
-  const [selectedTicker, setSelectedTicker] = React.useState(0);
-  const [selectedExpiry, setSelectedExpiry] = React.useState(0);
+  const { width } = useWindowDimensions();
+  const isWide = width >= IPAD_WIDTH;
+
+  // ── Store data ──
+  const tslaMatrix = useAppStore((s) => s.tslaMatrix);
+  const quotes = useAppStore((s) => s.quotes);
+
+  // ── Local UI state ──
+  const [selectedTicker, setSelectedTicker] = useState<Ticker>('TSLA');
+  const [selectedExpiryIdx, setSelectedExpiryIdx] = useState(0);
+  const [typeIndex, setTypeIndex] = useState(0); // 0 = Sell Put, 1 = Sell Call
+  const [checkedStrikes, setCheckedStrikes] = useState<Set<number>>(new Set());
+
+  // ── Resolve matrix data for current ticker ──
+  // Currently only TSLA has matrix data; others show a placeholder message
+  const matrix: StrikeComparison | null = selectedTicker === 'TSLA' ? tslaMatrix : null;
+
+  const currentPrice = matrix?.price ?? quotes[selectedTicker]?.price ?? 0;
+
+  // ── Derive expiries and strikes ──
+  const expiries = matrix?.expiries ?? [];
+  const activeExpiry = expiries[selectedExpiryIdx] ?? null;
+  const optionType = typeIndex === 0 ? 'puts' : 'calls';
+  const strikes: OptionEntry[] = activeExpiry?.[optionType] ?? [];
+
+  // ── Find best strike (highest annualized among good-spread options) ──
+  const bestStrike = useMemo(() => {
+    if (strikes.length === 0) return null;
+    const candidates = strikes.filter(
+      (s) => s.spreadQuality === 'Excellent' || s.spreadQuality === 'Good'
+    );
+    const pool = candidates.length > 0 ? candidates : strikes;
+    return pool.reduce((best, cur) =>
+      calculateStarRating(cur) > calculateStarRating(best) ? cur : best
+    );
+  }, [strikes]);
+
+  // ── Compare mode ──
+  const comparedEntries = useMemo(
+    () => strikes.filter((s) => checkedStrikes.has(s.strike)),
+    [strikes, checkedStrikes]
+  );
+
+  const toggleCompare = useCallback((strike: number) => {
+    setCheckedStrikes((prev) => {
+      const next = new Set(prev);
+      if (next.has(strike)) {
+        next.delete(strike);
+      } else if (next.size < 3) {
+        next.add(strike);
+      }
+      return next;
+    });
+  }, []);
+
+  // ── Backtest action ──
+  const addToPortfolio = useBacktestStore((s) => s.addToPortfolio);
+  const setSimpleInput = useBacktestStore((s) => s.setSimpleInput);
+
+  const handleBacktest = useCallback(
+    (entry: OptionEntry) => {
+      setSimpleInput({
+        symbol: selectedTicker,
+        strategy: typeIndex === 0 ? 'sell_put' : 'sell_call',
+        otmPct: Math.abs(entry.otmPct),
+      });
+    },
+    [selectedTicker, typeIndex, setSimpleInput]
+  );
+
+  const handleCompareBacktest = useCallback(() => {
+    comparedEntries.forEach((entry) => {
+      addToPortfolio({
+        symbol: selectedTicker,
+        strategy: typeIndex === 0 ? 'sell_put' : 'sell_call',
+        otmPct: Math.abs(entry.otmPct),
+        period: '6mo',
+        strike: entry.strike,
+      });
+    });
+  }, [comparedEntries, selectedTicker, typeIndex, addToPortfolio]);
+
+  // ── Render helpers ──
+
+  const renderStrikeCard = useCallback(
+    ({ item }: { item: OptionEntry }) => (
+      <View style={isWide ? styles.gridItem : undefined}>
+        <StrikeCard
+          entry={item}
+          currentPrice={currentPrice}
+          isBest={bestStrike?.strike === item.strike}
+          isChecked={checkedStrikes.has(item.strike)}
+          onToggleCompare={() => toggleCompare(item.strike)}
+          onBacktest={() => handleBacktest(item)}
+        />
+      </View>
+    ),
+    [currentPrice, bestStrike, checkedStrikes, isWide, toggleCompare, handleBacktest]
+  );
+
+  const keyExtractor = useCallback((item: OptionEntry) => `${item.strike}`, []);
+
+  // ── Empty state ──
+  if (!matrix) {
+    return (
+      <View style={[styles.emptyContainer, { backgroundColor: colors.background }]}>
+        <Text style={[styles.emptyIcon, { color: colors.textMuted }]}>{'\u26A0'}</Text>
+        <Text style={[styles.emptyTitle, { color: colors.textHeading }]}>
+          No Matrix Data
+        </Text>
+        <Text style={[styles.emptySubtitle, { color: colors.textMuted }]}>
+          {selectedTicker === 'TSLA'
+            ? 'Pull to refresh on Dashboard first'
+            : `Matrix data for ${selectedTicker} is not yet available`}
+        </Text>
+      </View>
+    );
+  }
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
-      <Text style={[styles.title, { color: colors.textHeading }]}>Options Matrix</Text>
-      <Text style={[styles.subtitle, { color: colors.textMuted }]}>
-        Strike comparison
-      </Text>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      {/* ── Header ── */}
+      <View style={styles.header}>
+        <Text style={[styles.title, { color: colors.textHeading }]}>Options Matrix</Text>
+        <Text style={[styles.subtitle, { color: colors.textMuted }]}>
+          Strike comparison & analysis
+        </Text>
+      </View>
 
-      {/* Ticker selector */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chips}>
-        {TICKERS.map((t, i) => (
-          <TouchableOpacity
-            key={t}
-            style={[
-              styles.chip,
-              {
-                backgroundColor: i === selectedTicker ? colors.accent : colors.card,
-                borderColor: i === selectedTicker ? colors.accent : colors.border,
-              },
-            ]}
-            onPress={() => setSelectedTicker(i)}
-          >
-            <Text
+      {/* ── Ticker chips ── */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.tickerRow}
+        contentContainerStyle={styles.tickerContent}
+      >
+        {TICKERS.map((ticker) => {
+          const active = ticker === selectedTicker;
+          const price = ticker === 'TSLA' && matrix ? matrix.price : quotes[ticker]?.price;
+          return (
+            <TouchableOpacity
+              key={ticker}
               style={[
-                styles.chipText,
-                { color: i === selectedTicker ? '#fff' : colors.textMuted },
+                styles.tickerChip,
+                {
+                  backgroundColor: active ? colors.accent : colors.card,
+                  borderColor: active ? colors.accent : colors.border,
+                },
               ]}
+              onPress={() => {
+                setSelectedTicker(ticker);
+                setSelectedExpiryIdx(0);
+                setCheckedStrikes(new Set());
+              }}
+              activeOpacity={0.7}
             >
-              {t}
-            </Text>
-          </TouchableOpacity>
-        ))}
+              <Text
+                style={[
+                  styles.tickerSymbol,
+                  { color: active ? '#fff' : colors.textHeading },
+                ]}
+              >
+                {ticker}
+              </Text>
+              {price != null && (
+                <Text
+                  style={[
+                    styles.tickerPrice,
+                    { color: active ? 'rgba(255,255,255,0.8)' : colors.textMuted },
+                  ]}
+                >
+                  {formatDollar(price)}
+                </Text>
+              )}
+            </TouchableOpacity>
+          );
+        })}
       </ScrollView>
 
-      {/* Expiry tabs */}
-      <View style={[styles.expiryRow, { borderBottomColor: colors.border }]}>
-        {EXPIRIES.map((e, i) => (
+      {/* ── Expiry tabs ── */}
+      {expiries.length > 0 && (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.expiryScroll}
+          contentContainerStyle={styles.expiryContent}
+        >
+          {expiries.map((exp, idx) => {
+            const active = idx === selectedExpiryIdx;
+            const dte = exp.dte > 0 ? exp.dte : daysUntil(exp.date);
+            return (
+              <TouchableOpacity
+                key={exp.date}
+                style={[
+                  styles.expiryTab,
+                  active && { borderBottomColor: colors.gold, borderBottomWidth: 2 },
+                ]}
+                onPress={() => {
+                  setSelectedExpiryIdx(idx);
+                  setCheckedStrikes(new Set());
+                }}
+                activeOpacity={0.7}
+              >
+                <Text
+                  style={[
+                    styles.expiryDate,
+                    { color: active ? colors.gold : colors.textMuted },
+                  ]}
+                >
+                  {formatDate(exp.date)}
+                </Text>
+                <Text
+                  style={[
+                    styles.expiryDte,
+                    { color: active ? colors.gold : colors.tabInactive },
+                  ]}
+                >
+                  ({dte}d)
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      )}
+
+      {/* ── Type toggle ── */}
+      <View style={styles.typeToggle}>
+        <SegmentedControl
+          segments={TYPE_SEGMENTS}
+          selectedIndex={typeIndex}
+          onChange={(idx) => {
+            setTypeIndex(idx);
+            setCheckedStrikes(new Set());
+          }}
+        />
+      </View>
+
+      {/* ── Strike count ── */}
+      <Text style={[styles.countLabel, { color: colors.textMuted }]}>
+        {strikes.length} strikes
+        {bestStrike ? ` \u2022 Best: ${formatDollar(bestStrike.strike)}` : ''}
+      </Text>
+
+      {/* ── Strike cards FlatList ── */}
+      {strikes.length === 0 ? (
+        <View style={styles.noStrikes}>
+          <Text style={[styles.noStrikesText, { color: colors.textMuted }]}>
+            No {typeIndex === 0 ? 'put' : 'call'} data for this expiry
+          </Text>
+        </View>
+      ) : (
+        <FlatList
+          data={strikes}
+          renderItem={renderStrikeCard}
+          keyExtractor={keyExtractor}
+          contentContainerStyle={styles.listContent}
+          numColumns={isWide ? 2 : 1}
+          key={isWide ? 'wide' : 'narrow'} // Force re-mount when numColumns changes
+          showsVerticalScrollIndicator={false}
+        />
+      )}
+
+      {/* ── Compare bottom sheet ── */}
+      {comparedEntries.length >= 2 && (
+        <View style={[styles.compareSheet, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Text style={[styles.compareTitle, { color: colors.textHeading }]}>
+            Compare ({comparedEntries.length})
+          </Text>
+
+          {/* Side-by-side summary */}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <View style={styles.compareRow}>
+              {comparedEntries.map((entry) => (
+                <View key={entry.strike} style={styles.compareCol}>
+                  <Text style={[styles.compareStrike, { color: colors.gold }]}>
+                    {formatDollar(entry.strike)}
+                  </Text>
+                  <Text style={[styles.compareStat, { color: colors.textMuted }]}>
+                    POP {entry.pop.toFixed(1)}%
+                  </Text>
+                  <Text style={[styles.compareStat, { color: colors.textMuted }]}>
+                    Ann {entry.annualized.toFixed(1)}%
+                  </Text>
+                  <Text style={[styles.compareStat, { color: colors.textMuted }]}>
+                    IV {entry.iv.toFixed(1)}%
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </ScrollView>
+
+          {/* Comparison insight */}
+          {comparedEntries.length === 2 && (
+            <CompareInsight a={comparedEntries[0]} b={comparedEntries[1]} colors={colors} />
+          )}
+
+          {/* Compare in Backtest button */}
           <TouchableOpacity
-            key={e}
-            style={[
-              styles.expiryTab,
-              i === selectedExpiry && { borderBottomColor: colors.gold, borderBottomWidth: 2 },
-            ]}
-            onPress={() => setSelectedExpiry(i)}
+            style={[styles.compareBtn, { backgroundColor: colors.accent }]}
+            onPress={handleCompareBacktest}
+            activeOpacity={0.7}
           >
-            <Text
-              style={[
-                styles.expiryText,
-                { color: i === selectedExpiry ? colors.gold : colors.textMuted },
-              ]}
-            >
-              {e}
-            </Text>
+            <Text style={styles.compareBtnText}>Compare in Backtest {'\u2192'}</Text>
           </TouchableOpacity>
-        ))}
-      </View>
-
-      {/* Header */}
-      <View style={[styles.headerRow, { borderBottomColor: colors.border }]}>
-        <Text style={[styles.headerCell, styles.strikeCol, { color: colors.textMuted }]}>Strike</Text>
-        <Text style={[styles.headerCell, styles.priceCol, { color: colors.textMuted }]}>Call</Text>
-        <Text style={[styles.headerCell, styles.priceCol, { color: colors.textMuted }]}>Put</Text>
-        <Text style={[styles.headerCell, styles.ivCol, { color: colors.textMuted }]}>IV%</Text>
-      </View>
-
-      {/* Strike rows */}
-      {STRIKES.map((s) => (
-        <Card key={s.strike} style={styles.strikeCard}>
-          <View style={styles.strikeRow}>
-            <Text style={[styles.cell, styles.strikeCol, { color: colors.textHeading, fontWeight: '700' }]}>
-              ${s.strike}
-            </Text>
-            <View style={styles.priceCol}>
-              <Text style={[styles.cell, { color: colors.positive }]}>${s.call.toFixed(2)}</Text>
-              <Text style={[styles.delta, { color: colors.textMuted }]}>{s.callDelta.toFixed(2)}</Text>
-            </View>
-            <View style={styles.priceCol}>
-              <Text style={[styles.cell, { color: colors.negative }]}>${s.put.toFixed(2)}</Text>
-              <Text style={[styles.delta, { color: colors.textMuted }]}>{s.putDelta.toFixed(2)}</Text>
-            </View>
-            <Text style={[styles.cell, styles.ivCol, { color: colors.gold }]}>{s.iv}%</Text>
-          </View>
-        </Card>
-      ))}
-    </ScrollView>
+        </View>
+      )}
+    </View>
   );
 }
 
+// ── Compare insight sub-component ──
+
+function CompareInsight({
+  a,
+  b,
+  colors,
+}: {
+  a: OptionEntry;
+  b: OptionEntry;
+  colors: ReturnType<typeof useTheme>['colors'];
+}) {
+  const popDiff = Math.abs(a.pop - b.pop);
+  const annDiff = Math.abs(a.annualized - b.annualized);
+
+  // Determine which is higher-POP and which is higher-annualized
+  const higherPop = a.pop >= b.pop ? a : b;
+  const higherAnn = a.annualized >= b.annualized ? a : b;
+
+  if (higherPop.strike === higherAnn.strike) {
+    // Same strike dominates both metrics
+    return (
+      <Text style={[styles.insightText, { color: colors.textMuted }]}>
+        {formatDollar(higherPop.strike)} leads in both POP (+{popDiff.toFixed(1)}%) and annualized (+{annDiff.toFixed(1)}%)
+      </Text>
+    );
+  }
+
+  return (
+    <Text style={[styles.insightText, { color: colors.textMuted }]}>
+      {formatDollar(higherPop.strike)} has {popDiff.toFixed(1)}% more POP but{' '}
+      {formatDollar(higherAnn.strike)} has {annDiff.toFixed(1)}% more annualized return
+    </Text>
+  );
+}
+
+// ── Styles ──
+
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16 },
-  title: { fontSize: 28, fontWeight: '700', marginTop: 8, marginBottom: 4 },
-  subtitle: { fontSize: 14, marginBottom: 16 },
-  chips: { flexDirection: 'row', marginBottom: 16 },
-  chip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    marginRight: 8,
+  container: {
+    flex: 1,
   },
-  chipText: { fontSize: 14, fontWeight: '600' },
-  expiryRow: {
-    flexDirection: 'row',
-    borderBottomWidth: 1,
+  header: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  subtitle: {
+    fontSize: 14,
     marginBottom: 12,
   },
-  expiryTab: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 10,
+  // Ticker chips
+  tickerRow: {
+    maxHeight: 56,
+    marginBottom: 8,
   },
-  expiryText: { fontSize: 13, fontWeight: '600' },
-  headerRow: {
+  tickerContent: {
+    paddingHorizontal: 16,
+    gap: 10,
+  },
+  tickerChip: {
     flexDirection: 'row',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 24,
+    borderWidth: 1,
+    gap: 8,
+  },
+  tickerSymbol: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  tickerPrice: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  // Expiry tabs
+  expiryScroll: {
+    maxHeight: 48,
     marginBottom: 4,
   },
-  headerCell: { fontSize: 12, fontWeight: '600', textTransform: 'uppercase' },
-  strikeCard: { paddingVertical: 10, paddingHorizontal: 12, marginBottom: 6 },
-  strikeRow: { flexDirection: 'row', alignItems: 'center' },
-  cell: { fontSize: 14 },
-  strikeCol: { width: 70 },
-  priceCol: { flex: 1 },
-  ivCol: { width: 50, textAlign: 'right' },
-  delta: { fontSize: 11, marginTop: 1 },
+  expiryContent: {
+    paddingHorizontal: 16,
+    gap: 4,
+  },
+  expiryTab: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  expiryDate: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  expiryDte: {
+    fontSize: 11,
+    marginTop: 1,
+  },
+  // Type toggle
+  typeToggle: {
+    paddingHorizontal: 16,
+    marginTop: 4,
+  },
+  // Count label
+  countLabel: {
+    fontSize: 12,
+    paddingHorizontal: 16,
+    marginBottom: 8,
+  },
+  // FlatList
+  listContent: {
+    paddingHorizontal: 12,
+    paddingBottom: 120, // room for compare sheet
+  },
+  gridItem: {
+    flex: 1,
+    paddingHorizontal: 4,
+  },
+  // Empty state
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+  },
+  emptyIcon: {
+    fontSize: 48,
+    marginBottom: 16,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  noStrikes: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  noStrikesText: {
+    fontSize: 14,
+  },
+  // Compare bottom sheet
+  compareSheet: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    borderTopWidth: 1,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    padding: 16,
+    paddingBottom: 32, // safe area
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 10,
+  },
+  compareTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 10,
+  },
+  compareRow: {
+    flexDirection: 'row',
+    gap: 20,
+    marginBottom: 8,
+  },
+  compareCol: {
+    minWidth: 90,
+  },
+  compareStrike: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  compareStat: {
+    fontSize: 12,
+    marginBottom: 2,
+  },
+  insightText: {
+    fontSize: 13,
+    fontStyle: 'italic',
+    marginVertical: 6,
+    lineHeight: 18,
+  },
+  compareBtn: {
+    marginTop: 8,
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  compareBtnText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '700',
+  },
 });
