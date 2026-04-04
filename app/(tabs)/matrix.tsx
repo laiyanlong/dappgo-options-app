@@ -189,6 +189,9 @@ export default function MatrixScreen() {
 
   // ── Render helpers ──
 
+  const strategyLabel = typeIndex === 0 ? 'sell_put' : 'sell_call';
+  const activeExpiryDate = activeExpiry?.date ?? '';
+
   const renderStrikeCard = useCallback(
     ({ item }: { item: OptionEntry }) => (
       <View style={isWide ? styles.gridItem : undefined}>
@@ -199,10 +202,13 @@ export default function MatrixScreen() {
           isChecked={checkedStrikes.has(item.strike)}
           onToggleCompare={() => toggleCompare(item.strike)}
           onBacktest={() => handleBacktest(item)}
+          symbol={selectedTicker}
+          strategy={strategyLabel}
+          expiry={activeExpiryDate}
         />
       </View>
     ),
-    [currentPrice, bestStrike, checkedStrikes, isWide, toggleCompare, handleBacktest]
+    [currentPrice, bestStrike, checkedStrikes, isWide, toggleCompare, handleBacktest, selectedTicker, strategyLabel, activeExpiryDate]
   );
 
   const keyExtractor = useCallback((item: OptionEntry) => `${item.strike}`, []);

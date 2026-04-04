@@ -1,9 +1,11 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../theme';
 import { Card } from '../ui/Card';
 import { StarRating } from '../ui/StarRating';
 import { formatDollar, formatVolume } from '../../utils/format';
+import { useWatchlistStore } from '../../store/watchlist-store';
 import type { OptionEntry } from '../../utils/types';
 
 interface StrikeCardProps {
@@ -19,6 +21,12 @@ interface StrikeCardProps {
   onToggleCompare: () => void;
   /** Navigate to backtest for this strike */
   onBacktest: () => void;
+  /** Ticker symbol for watchlist (e.g. 'TSLA') */
+  symbol?: string;
+  /** Strategy label for watchlist (e.g. 'sell_put') */
+  strategy?: string;
+  /** Expiry date string for watchlist */
+  expiry?: string;
 }
 
 /**
@@ -55,9 +63,26 @@ export function StrikeCard({
   isChecked,
   onToggleCompare,
   onBacktest,
+  symbol = '',
+  strategy = 'sell_put',
+  expiry = '',
 }: StrikeCardProps) {
   const { colors } = useTheme();
   const stars = calculateStarRating(entry);
+
+  // Watchlist integration
+  const hasItem = useWatchlistStore((s) => s.hasItem);
+  const addItem = useWatchlistStore((s) => s.addItem);
+  const removeByKey = useWatchlistStore((s) => s.removeByKey);
+  const isInWatchlist = hasItem(symbol, entry.strike);
+
+  const toggleWatchlist = () => {
+    if (isInWatchlist) {
+      removeByKey(symbol, entry.strike);
+    } else {
+      addItem({ symbol, strategy, strike: entry.strike, expiry });
+    }
+  };
 
   // Color helpers
   const popColor =
@@ -190,6 +215,27 @@ export function StrikeCard({
             {'\u25B6'} Backtest
           </Text>
         </TouchableOpacity>
+
+        {/* Watchlist bookmark button */}
+        {symbol !== '' && (
+          <TouchableOpacity
+            style={[
+              styles.watchlistBtn,
+              {
+                backgroundColor: isInWatchlist ? colors.negative + '18' : colors.background,
+                borderColor: isInWatchlist ? colors.negative : colors.border,
+              },
+            ]}
+            onPress={toggleWatchlist}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name={isInWatchlist ? 'heart' : 'heart-outline'}
+              size={16}
+              color={isInWatchlist ? colors.negative : colors.textMuted}
+            />
+          </TouchableOpacity>
+        )}
       </View>
     </Card>
   );
@@ -297,5 +343,13 @@ const styles = StyleSheet.create({
   actionBtnText: {
     fontSize: 13,
     fontWeight: '600',
+  },
+  watchlistBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

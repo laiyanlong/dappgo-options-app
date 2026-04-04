@@ -11,6 +11,8 @@ import {
   Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+import { useBacktestStore } from '../../src/store/backtest-store';
 import { useTheme } from '../../src/theme';
 import { typography } from '../../src/theme/typography';
 import { spacing, borderRadius } from '../../src/theme/spacing';
@@ -27,6 +29,8 @@ import { PoweredByDappGo } from '../../src/components/ui/PoweredByDappGo';
 import { FadeIn } from '../../src/components/ui/FadeIn';
 import { WelcomeCard } from '../../src/components/onboarding/WelcomeCard';
 import { lightHaptic } from '../../src/utils/haptics';
+import { useWatchlistStore } from '../../src/store/watchlist-store';
+import type { WatchlistItem } from '../../src/store/watchlist-store';
 import type { TickerVerdict } from '../../src/utils/types';
 
 // ── Type helpers for dashboard JSON ──
@@ -78,6 +82,15 @@ function ivSignalColor(signal: string, positive: string, negative: string, muted
 export default function DashboardScreen() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const backtestSetSimpleInput = useBacktestStore((s) => s.setSimpleInput);
+  const backtestSetMode = useBacktestStore((s) => s.setMode);
+  const backtestSetPendingAutoRun = useBacktestStore((s) => s.setPendingAutoRun);
+
+  // Watchlist
+  const watchlistItems = useWatchlistStore((s) => s.items);
+  const clearWatchlist = useWatchlistStore((s) => s.clearAll);
+
   const {
     dashboardData,
     isLoadingDashboard,
@@ -380,6 +393,55 @@ export default function DashboardScreen() {
         </View>
       )}
 
+      {/* ── Watchlist ── */}
+      {watchlistItems.length > 0 && (
+        <View style={styles.section}>
+          <View style={styles.watchlistHeader}>
+            <Text style={[styles.sectionTitle, { color: colors.textHeading, marginBottom: 0 }]}>
+              {'\uD83D\uDCCC'} Watchlist
+            </Text>
+            <TouchableOpacity onPress={clearWatchlist} activeOpacity={0.7}>
+              <Text style={[styles.clearAllBtn, { color: colors.negative }]}>Clear All</Text>
+            </TouchableOpacity>
+          </View>
+          <FlatList
+            data={watchlistItems}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.watchlistList}
+            keyExtractor={(item, idx) => `${item.symbol}-${item.strike}-${idx}`}
+            renderItem={({ item }: { item: WatchlistItem }) => (
+              <TouchableOpacity
+                style={[
+                  styles.watchlistCard,
+                  {
+                    backgroundColor: colors.card,
+                    borderColor: colors.border,
+                  },
+                ]}
+                activeOpacity={0.7}
+                onPress={() => router.navigate('/(tabs)/matrix')}
+              >
+                <Text style={[styles.watchlistSymbol, { color: colors.gold }]}>
+                  {item.symbol}
+                </Text>
+                <Text style={[styles.watchlistStrategy, { color: colors.accent }]}>
+                  {formatStrategy(item.strategy)}
+                </Text>
+                <Text style={[styles.watchlistStrike, { color: colors.textHeading }]}>
+                  {formatDollar(item.strike)}
+                </Text>
+                {item.expiry ? (
+                  <Text style={[styles.watchlistExpiry, { color: colors.textMuted }]}>
+                    Exp: {item.expiry}
+                  </Text>
+                ) : null}
+              </TouchableOpacity>
+            )}
+          />
+        </View>
+      )}
+
       {/* ── Today's Top Picks ── */}
       {topPicks.length > 0 && (
         <View style={styles.section}>
@@ -429,6 +491,32 @@ export default function DashboardScreen() {
                   Exp: {pick.expiry}{pick.dte != null ? ` (${pick.dte}d)` : ''}
                 </Text>
               )}
+
+              {/* Quick Backtest button */}
+              <TouchableOpacity
+                style={[styles.backtestBtn, { borderColor: colors.accent }]}
+                activeOpacity={0.7}
+                onPress={() => {
+                  // Map strategy string to BacktestInput strategy type
+                  const strategyKey = pick.strategy.toLowerCase().replace(/[\s-]+/g, '_');
+                  const validStrategies = ['sell_put', 'sell_call', 'iron_condor', 'bull_put_spread', 'bear_call_spread'] as const;
+                  const strategy = validStrategies.find((s) => strategyKey.includes(s)) ?? 'sell_put';
+
+                  backtestSetMode('simple');
+                  backtestSetSimpleInput({
+                    symbol: pick.symbol,
+                    strategy,
+                    period: '6mo',
+                  });
+                  backtestSetPendingAutoRun(true);
+                  lightHaptic();
+                  router.navigate('/(tabs)/backtest');
+                }}
+              >
+                <Text style={[styles.backtestBtnText, { color: colors.accent }]}>
+                  Backtest
+                </Text>
+              </TouchableOpacity>
             </Card>
           ))}
         </View>
@@ -637,6 +725,48 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
 
+  // Watchlist
+  watchlistHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  clearAllBtn: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  watchlistList: {
+    paddingVertical: spacing.xs,
+    gap: spacing.sm,
+  },
+  watchlistCard: {
+    width: 140,
+    padding: spacing.md,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+  },
+  watchlistSymbol: {
+    fontSize: 15,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  watchlistStrategy: {
+    fontSize: 11,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    marginBottom: 4,
+  },
+  watchlistStrike: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  watchlistExpiry: {
+    fontSize: 11,
+    marginTop: 2,
+  },
+
   // Top picks
   pickHeader: {
     flexDirection: 'row',
@@ -669,6 +799,19 @@ const styles = StyleSheet.create({
   },
   pickNum: {
     fontSize: 16,
+    fontWeight: '700',
+  },
+
+  // Quick backtest button on pick cards
+  backtestBtn: {
+    marginTop: spacing.sm,
+    borderWidth: 1,
+    borderRadius: borderRadius.md,
+    paddingVertical: 8,
+    alignItems: 'center',
+  },
+  backtestBtnText: {
+    fontSize: 13,
     fontWeight: '700',
   },
 });

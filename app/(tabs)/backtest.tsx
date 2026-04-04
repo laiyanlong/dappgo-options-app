@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ScrollView,
   View,
@@ -8,13 +8,22 @@ import {
   TextInput,
   ActivityIndicator,
   Modal,
+  Alert,
+  Animated,
+  PanResponder,
+  Dimensions,
+  LayoutAnimation,
+  Platform,
+  UIManager,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../src/theme';
 import { Card } from '../../src/components/ui/Card';
 import { SegmentedControl } from '../../src/components/ui/SegmentedControl';
 import { StarRating } from '../../src/components/ui/StarRating';
+import { PnLChart } from '../../src/components/charts/PnLChart';
 import { useBacktestStore } from '../../src/store/backtest-store';
+import type { SavedBacktestResult } from '../../src/store/backtest-store';
 import { useSettingsStore } from '../../src/store/settings-store';
 import { useAppStore } from '../../src/store/app-store';
 import { runBacktest } from '../../src/engine/backtest';
@@ -24,6 +33,13 @@ import {
 } from '../../src/data/sample-prices';
 import { formatDollar } from '../../src/utils/format';
 import type { BacktestInput, BacktestResult } from '../../src/utils/types';
+
+// Enable LayoutAnimation on Android
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
+const SCREEN_WIDTH = Dimensions.get('window').width;
 
 interface LivePrice {
   symbol: string;
@@ -75,11 +91,31 @@ export default function BacktestScreen() {
     results,
     setResults,
     saveResult,
+    removeSavedResult,
+    savedResults,
     clearResults,
+    pendingAutoRun,
+    setPendingAutoRun,
   } = useBacktestStore();
 
   const [computing, setComputing] = useState(false);
   const [addModalVisible, setAddModalVisible] = useState(false);
+  const [historyDetail, setHistoryDetail] = useState<SavedBacktestResult | null>(null);
+
+  // Auto-run backtest when navigated from dashboard "Backtest" button
+  const autoRunRef = useRef(false);
+  useEffect(() => {
+    if (pendingAutoRun && !autoRunRef.current) {
+      autoRunRef.current = true;
+      setPendingAutoRun(false);
+      // Small delay so the screen renders first
+      const timer = setTimeout(() => {
+        autoRunRef.current = false;
+        runSimpleRef.current?.();
+      }, 200);
+      return () => clearTimeout(timer);
+    }
+  }, [pendingAutoRun, setPendingAutoRun]);
 
   // Dashboard data for enriching sample prices with real starting prices
   const dashboardData = useAppStore((s) => s.dashboardData);
@@ -110,6 +146,9 @@ export default function BacktestScreen() {
   const [newStrike, setNewStrike] = useState('');
   const [newExpiry, setNewExpiry] = useState('');
 
+  // Ref to allow auto-run to call runSimple
+  const runSimpleRef = useRef<(() => void) | null>(null);
+
   // ── Run single backtest (simple mode) ──
   const runSimple = useCallback(() => {
     setComputing(true);
@@ -132,6 +171,9 @@ export default function BacktestScreen() {
       setComputing(false);
     }, 50);
   }, [simpleInput, clearResults, setResults, getEnrichedPrices]);
+
+  // Keep ref in sync so auto-run can call the latest version
+  runSimpleRef.current = runSimple;
 
   // ── Run all portfolio backtests (advanced mode) ──
   const runAll = useCallback(() => {
@@ -672,12 +714,16 @@ export default function BacktestScreen() {
                 />
               </View>
 
-              {/* P&L Curve (simplified text sparkline) */}
+              {/* P&L Curve (SVG chart) */}
               <View style={[styles.curveContainer, { borderColor: colors.border }]}>
                 <Text style={[styles.curveLabel, { color: colors.textMuted }]}>
                   P&L CURVE
                 </Text>
-                <PnlMiniChart curve={r.pnlCurve} colors={colors} />
+                <PnLChart
+                  data={r.pnlCurve}
+                  width={SCREEN_WIDTH - 64}
+                  height={200}
+                />
               </View>
             </Card>
           ))}
@@ -772,9 +818,10 @@ export default function BacktestScreen() {
               style={[styles.actionBtn, { backgroundColor: colors.accent }]}
               onPress={() => {
                 results.forEach((r) => saveResult(r));
+                Alert.alert('Saved', 'Backtest results saved to history.');
               }}
             >
-              <Text style={styles.actionBtnText}>Save Result</Text>
+              <Text style={styles.actionBtnText}>Save to History</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.actionBtn, { backgroundColor: colors.backgroundAlt, borderColor: colors.border, borderWidth: 1 }]}
@@ -787,6 +834,118 @@ export default function BacktestScreen() {
           </View>
         </>
       )}
+
+      {/* ═══════════════ HISTORY SECTION ═══════════════ */}
+      {savedResults.length > 0 && (
+        <>
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
+          <Text style={[styles.resultsTitle, { color: colors.textHeading }]}>
+            {'\uD83D\uDCDA'} History
+          </Text>
+          <Text style={[styles.simNote, { color: colors.textMuted }]}>
+            {savedResults.length} saved result{savedResults.length !== 1 ? 's' : ''}. Swipe left to delete.
+          </Text>
+          {savedResults.map((sr, idx) => (
+            <SwipeToDeleteCard
+              key={`${sr.input.symbol}-${sr.savedAt}-${idx}`}
+              onDelete={() => {
+                LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                removeSavedResult(idx);
+              }}
+            >
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => setHistoryDetail(sr)}
+              >
+                <Card>
+                  <View style={styles.historyCardRow}>
+                    <View style={{ flex: 1 }}>
+                      <View style={styles.historyCardHeader}>
+                        <Text style={[styles.historySymbol, { color: colors.gold }]}>
+                          {sr.input.symbol}
+                        </Text>
+                        <Text style={[styles.historyStrategy, { color: colors.accent }]}>
+                          {STRATEGIES.find((s) => s.key === sr.input.strategy)?.label ?? sr.input.strategy}
+                        </Text>
+                      </View>
+                      <View style={styles.historyMetrics}>
+                        <Text style={[styles.historyMetric, { color: colors.textMuted }]}>
+                          Win: <Text style={{ color: sr.winRate >= 55 ? colors.positive : colors.negative, fontWeight: '700' }}>{sr.winRate}%</Text>
+                        </Text>
+                        <Text style={[styles.historyMetric, { color: colors.textMuted }]}>
+                          P&L: <Text style={{ color: sr.totalPnl >= 0 ? colors.positive : colors.negative, fontWeight: '700' }}>{formatDollar(sr.totalPnl)}</Text>
+                        </Text>
+                      </View>
+                      <Text style={[styles.historySavedAt, { color: colors.textMuted }]}>
+                        Saved {formatSavedAt(sr.savedAt)}
+                      </Text>
+                    </View>
+                    <Text style={{ color: colors.textMuted, fontSize: 18 }}>{'\u203A'}</Text>
+                  </View>
+                </Card>
+              </TouchableOpacity>
+            </SwipeToDeleteCard>
+          ))}
+        </>
+      )}
+
+      {/* ═══════════════ HISTORY DETAIL MODAL ═══════════════ */}
+      <Modal
+        visible={historyDetail !== null}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setHistoryDetail(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.historyModalContent, { backgroundColor: colors.card }]}>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {historyDetail && (
+                <>
+                  <View style={styles.summaryHeader}>
+                    <View>
+                      <Text style={[styles.summaryTicker, { color: colors.textHeading }]}>
+                        {historyDetail.input.symbol}
+                      </Text>
+                      <Text style={[styles.summaryStrategy, { color: colors.textMuted }]}>
+                        {STRATEGIES.find((s) => s.key === historyDetail.input.strategy)?.label ?? historyDetail.input.strategy}
+                        {historyDetail.input.otmPct ? ` | ${historyDetail.input.otmPct}% OTM` : ''}
+                        {' | '}{historyDetail.input.period}
+                      </Text>
+                    </View>
+                    <StarRating score={historyDetail.rating} size={18} />
+                  </View>
+
+                  <View style={styles.metricsGrid}>
+                    <MetricCell label="Total P&L" value={formatDollar(historyDetail.totalPnl)} color={historyDetail.totalPnl >= 0 ? colors.positive : colors.negative} />
+                    <MetricCell label="Win Rate" value={`${historyDetail.winRate}%`} color={historyDetail.winRate >= 55 ? colors.positive : colors.negative} />
+                    <MetricCell label="Sharpe" value={historyDetail.sharpe.toFixed(2)} color={historyDetail.sharpe >= 1 ? colors.positive : colors.gold} />
+                    <MetricCell label="Max DD" value={formatDollar(historyDetail.maxDrawdown)} color={colors.negative} />
+                    <MetricCell label="Avg Win" value={formatDollar(historyDetail.avgWin)} color={colors.positive} />
+                    <MetricCell label="Avg Loss" value={formatDollar(Math.abs(historyDetail.avgLoss))} color={colors.negative} />
+                    <MetricCell label="Trades" value={`${historyDetail.trades}`} color={colors.text} />
+                    <MetricCell label="Profit Factor" value={historyDetail.profitFactor >= 999 ? 'INF' : historyDetail.profitFactor.toFixed(2)} color={historyDetail.profitFactor >= 1.5 ? colors.positive : colors.gold} />
+                  </View>
+
+                  <View style={[styles.curveContainer, { borderColor: colors.border }]}>
+                    <Text style={[styles.curveLabel, { color: colors.textMuted }]}>P&L CURVE</Text>
+                    <PnLChart
+                      data={historyDetail.pnlCurve}
+                      width={SCREEN_WIDTH - 80}
+                      height={180}
+                    />
+                  </View>
+                </>
+              )}
+            </ScrollView>
+            <TouchableOpacity
+              style={[styles.runBtn, { backgroundColor: colors.accent, marginTop: 16 }]}
+              onPress={() => setHistoryDetail(null)}
+            >
+              <Text style={styles.runBtnText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       {/* Bottom spacing */}
       <View style={{ height: 40 }} />
@@ -805,88 +964,99 @@ function MetricCell({ label, value, color }: { label: string; value: string; col
   );
 }
 
-// ── Mini P&L chart using View bars ──
-function PnlMiniChart({
-  curve,
-  colors,
+// ── Swipe-to-delete wrapper for history cards ──
+function SwipeToDeleteCard({
+  onDelete,
+  children,
 }: {
-  curve: { date: string; pnl: number }[];
-  colors: Record<string, string>;
+  onDelete: () => void;
+  children: React.ReactNode;
 }) {
-  if (curve.length === 0) return null;
+  const translateX = useRef(new Animated.Value(0)).current;
+  const threshold = -80;
 
-  // Sample down to ~50 bars for display
-  const step = Math.max(1, Math.floor(curve.length / 50));
-  const sampled = curve.filter((_, i) => i % step === 0);
-
-  const maxAbs = Math.max(
-    ...sampled.map((p) => Math.abs(p.pnl)),
-    1
-  );
-  const halfHeight = 30;
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, g) =>
+        Math.abs(g.dx) > 10 && Math.abs(g.dx) > Math.abs(g.dy),
+      onPanResponderMove: (_, g) => {
+        if (g.dx < 0) {
+          translateX.setValue(g.dx);
+        }
+      },
+      onPanResponderRelease: (_, g) => {
+        if (g.dx < threshold) {
+          Animated.timing(translateX, {
+            toValue: -SCREEN_WIDTH,
+            duration: 200,
+            useNativeDriver: true,
+          }).start(() => onDelete());
+        } else {
+          Animated.spring(translateX, {
+            toValue: 0,
+            useNativeDriver: true,
+          }).start();
+        }
+      },
+    })
+  ).current;
 
   return (
-    <View style={styles.miniChart}>
-      {/* Top half (positive) */}
-      <View style={styles.miniChartHalf}>
-        <View style={styles.miniChartBars}>
-          {sampled.map((point, i) => {
-            const barH = point.pnl > 0 ? (point.pnl / maxAbs) * halfHeight : 0;
-            return (
-              <View
-                key={i}
-                style={{
-                  flex: 1,
-                  justifyContent: 'flex-end',
-                  marginHorizontal: 0.5,
-                }}
-              >
-                <View
-                  style={{
-                    height: Math.max(barH, point.pnl > 0 ? 1 : 0),
-                    backgroundColor: colors.positive,
-                    borderRadius: 1,
-                  }}
-                />
-              </View>
-            );
-          })}
-        </View>
+    <View style={{ overflow: 'hidden' }}>
+      {/* Delete background */}
+      <View style={swipeStyles.deleteBackground}>
+        <Text style={swipeStyles.deleteText}>Delete</Text>
       </View>
-      {/* Zero line */}
-      <View style={[styles.zeroLine, { backgroundColor: colors.border }]} />
-      {/* Bottom half (negative) */}
-      <View style={styles.miniChartHalf}>
-        <View style={styles.miniChartBars}>
-          {sampled.map((point, i) => {
-            const barH = point.pnl < 0 ? (Math.abs(point.pnl) / maxAbs) * halfHeight : 0;
-            return (
-              <View
-                key={i}
-                style={{
-                  flex: 1,
-                  justifyContent: 'flex-start',
-                  marginHorizontal: 0.5,
-                }}
-              >
-                <View
-                  style={{
-                    height: Math.max(barH, point.pnl < 0 ? 1 : 0),
-                    backgroundColor: colors.negative,
-                    borderRadius: 1,
-                  }}
-                />
-              </View>
-            );
-          })}
-        </View>
-      </View>
+      <Animated.View
+        style={{ transform: [{ translateX }] }}
+        {...panResponder.panHandlers}
+      >
+        {children}
+      </Animated.View>
     </View>
   );
 }
 
+const swipeStyles = StyleSheet.create({
+  deleteBackground: {
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    bottom: 0,
+    width: 100,
+    backgroundColor: '#ef4444',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 12,
+  },
+  deleteText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 13,
+  },
+});
+
+// ── Format saved-at timestamp ──
+function formatSavedAt(iso: string): string {
+  try {
+    const d = new Date(iso);
+    const now = new Date();
+    const diffMs = now.getTime() - d.getTime();
+    const diffMin = Math.floor(diffMs / 60000);
+    if (diffMin < 1) return 'just now';
+    if (diffMin < 60) return `${diffMin}m ago`;
+    const diffH = Math.floor(diffMin / 60);
+    if (diffH < 24) return `${diffH}h ago`;
+    const diffD = Math.floor(diffH / 24);
+    if (diffD < 7) return `${diffD}d ago`;
+    return d.toLocaleDateString();
+  } catch {
+    return '';
+  }
+}
+
 // ── Styles ──
-const styles = StyleSheet.create({
+const styles = StyleSheet.create<Record<string, any>>({
   container: { flex: 1 },
   contentContainer: { padding: 16 },
   header: {
@@ -1069,27 +1239,13 @@ const styles = StyleSheet.create({
   metricLabel: { fontSize: 10, fontWeight: '600', textTransform: 'uppercase', marginBottom: 4 },
   metricValue: { fontSize: 15, fontWeight: '700' },
 
-  // P&L mini chart
+  // P&L chart
   curveContainer: {
     marginTop: 16,
     paddingTop: 12,
     borderTopWidth: StyleSheet.hairlineWidth,
   },
   curveLabel: { fontSize: 10, fontWeight: '600', letterSpacing: 1, marginBottom: 8 },
-  miniChart: {
-    height: 62,
-  },
-  miniChartHalf: {
-    height: 30,
-    overflow: 'hidden',
-  },
-  miniChartBars: {
-    flex: 1,
-    flexDirection: 'row',
-  },
-  zeroLine: {
-    height: StyleSheet.hairlineWidth,
-  },
 
   // Comparison table
   tableRow: {
@@ -1117,4 +1273,34 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   actionBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+
+  // History section
+  historyCardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  historyCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
+  },
+  historySymbol: { fontSize: 16, fontWeight: '800' },
+  historyStrategy: { fontSize: 12, fontWeight: '600' },
+  historyMetrics: {
+    flexDirection: 'row',
+    gap: 16,
+    marginBottom: 2,
+  },
+  historyMetric: { fontSize: 12 },
+  historySavedAt: { fontSize: 10, marginTop: 2 },
+
+  // History detail modal
+  historyModalContent: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 24,
+    paddingBottom: 40,
+    maxHeight: '85%',
+  },
 });

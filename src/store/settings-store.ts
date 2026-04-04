@@ -14,6 +14,10 @@ interface SettingsState {
     highCpAlert: boolean;
     ivSpikeAlert: boolean;
   };
+  lastViewedReportCount: number;
+  lastViewedMatrixCount: number;
+  setLastViewedReportCount: (count: number) => void;
+  setLastViewedMatrixCount: (count: number) => void;
   setThemeMode: (mode: 'dark' | 'light' | 'auto') => void;
   setLanguage: (lang: 'zh' | 'en') => void;
   setTickers: (tickers: string[]) => void;
@@ -39,6 +43,10 @@ export const useSettingsStore = create<SettingsState>()(
         highCpAlert: true,
         ivSpikeAlert: false,
       },
+      lastViewedReportCount: 0,
+      lastViewedMatrixCount: 0,
+      setLastViewedReportCount: (count) => set({ lastViewedReportCount: count }),
+      setLastViewedMatrixCount: (count) => set({ lastViewedMatrixCount: count }),
       setThemeMode: (mode) => set({ themeMode: mode }),
       setLanguage: (lang) => set({ language: lang }),
       setTickers: (tickers) => set({ tickers }),

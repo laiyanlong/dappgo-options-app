@@ -3,6 +3,11 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { BacktestInput, BacktestResult } from '../utils/types';
 
+export interface SavedBacktestResult extends BacktestResult {
+  /** ISO timestamp when the result was saved */
+  savedAt: string;
+}
+
 interface BacktestState {
   // Current backtest config
   mode: 'simple' | 'advanced';
@@ -18,7 +23,10 @@ interface BacktestState {
 
   // Results
   results: BacktestResult[];
-  savedResults: BacktestResult[];
+  savedResults: SavedBacktestResult[];
+
+  // Flag to auto-run backtest after navigating from dashboard
+  pendingAutoRun: boolean;
 
   // Actions
   setMode: (mode: 'simple' | 'advanced') => void;
@@ -28,7 +36,9 @@ interface BacktestState {
   clearPortfolio: () => void;
   setResults: (results: BacktestResult[]) => void;
   saveResult: (result: BacktestResult) => void;
+  removeSavedResult: (index: number) => void;
   clearResults: () => void;
+  setPendingAutoRun: (pending: boolean) => void;
 }
 
 export const useBacktestStore = create<BacktestState>()(
@@ -44,6 +54,7 @@ export const useBacktestStore = create<BacktestState>()(
       portfolio: [],
       results: [],
       savedResults: [],
+      pendingAutoRun: false,
 
       setMode: (mode) => set({ mode }),
       setSimpleInput: (input) =>
@@ -57,8 +68,18 @@ export const useBacktestStore = create<BacktestState>()(
       clearPortfolio: () => set({ portfolio: [] }),
       setResults: (results) => set({ results }),
       saveResult: (result) =>
-        set((s) => ({ savedResults: [...s.savedResults, result] })),
+        set((s) => ({
+          savedResults: [
+            ...s.savedResults,
+            { ...result, savedAt: new Date().toISOString() },
+          ],
+        })),
+      removeSavedResult: (index) =>
+        set((s) => ({
+          savedResults: s.savedResults.filter((_, i) => i !== index),
+        })),
       clearResults: () => set({ results: [] }),
+      setPendingAutoRun: (pending) => set({ pendingAutoRun: pending }),
     }),
     {
       name: 'dappgo-backtest',

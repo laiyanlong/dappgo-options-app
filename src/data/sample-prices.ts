@@ -25,14 +25,14 @@ function normalRandom(rng: () => number): number {
 
 // Default starting prices per ticker (approximate real-world levels)
 const DEFAULT_PRICES: Record<string, number> = {
-  TSLA: 260,
-  AMZN: 185,
-  NVDA: 120,
+  TSLA: 365,
+  AMZN: 210,
+  NVDA: 175,
   AAPL: 195,
   MSFT: 415,
   META: 500,
   GOOG: 155,
-  SPY: 510,
+  SPY: 640,
 };
 
 // Typical annual volatilities per ticker

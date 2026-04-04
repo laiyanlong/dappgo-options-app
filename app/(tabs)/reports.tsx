@@ -1,7 +1,8 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
+  TextInput,
   FlatList,
   TouchableOpacity,
   ScrollView,
@@ -9,10 +10,12 @@ import {
   RefreshControl,
   StyleSheet,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../../src/theme';
 import { useAppStore } from '../../src/store/app-store';
+import { useSettingsStore } from '../../src/store/settings-store';
 import { fetchReportDates, fetchReportContent } from '../../src/data/github-api';
 import { parseReport, extractTickerMetrics } from '../../src/data/parser';
 import { formatDate, formatPct, formatDollar } from '../../src/utils/format';
@@ -107,10 +110,32 @@ export default function ReportsScreen() {
   const setReport = useAppStore((s) => s.setReport);
   const setLoading = useAppStore((s) => s.setLoading);
 
+  // Settings (for badge tracking)
+  const setLastViewedReportCount = useSettingsStore((s) => s.setLastViewedReportCount);
+
   // Local state
   const [error, setError] = useState<string | null>(null);
   const [tickerFilter, setTickerFilter] = useState('All');
   const [dateRange, setDateRange] = useState<DateRange>('Month');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Debounced search (300ms)
+  const handleSearchChange = useCallback((text: string) => {
+    setSearchQuery(text);
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    debounceTimer.current = setTimeout(() => {
+      setDebouncedQuery(text.trim().toLowerCase());
+    }, 300);
+  }, []);
+
+  // Mark reports as viewed when this screen loads
+  useEffect(() => {
+    if (reportDates.length > 0) {
+      setLastViewedReportCount(reportDates.length);
+    }
+  }, [reportDates.length, setLastViewedReportCount]);
 
   // ── Fetch dates ──
 
@@ -180,8 +205,26 @@ export default function ReportsScreen() {
       });
     }
 
+    // Search query — filter by date string, ticker names
+    if (debouncedQuery) {
+      dates = dates.filter((d) => {
+        // Match against date string
+        if (d.toLowerCase().includes(debouncedQuery)) return true;
+        // Match against formatted date
+        if (formatDate(d).toLowerCase().includes(debouncedQuery)) return true;
+        // Match against ticker symbols in the report
+        const r = reports[d];
+        if (r) {
+          for (const t of r.tickers) {
+            if (t.symbol.toLowerCase().includes(debouncedQuery)) return true;
+          }
+        }
+        return false;
+      });
+    }
+
     return dates;
-  }, [reportDates, reports, tickerFilter, dateRange]);
+  }, [reportDates, reports, tickerFilter, dateRange, debouncedQuery]);
 
   // ── Render helpers ──
 
@@ -313,6 +356,26 @@ export default function ReportsScreen() {
         ))}
       </ScrollView>
 
+      {/* Search bar */}
+      <View style={[styles.searchContainer, { borderColor: colors.border, backgroundColor: colors.card }]}>
+        <Ionicons name="search" size={16} color={colors.textMuted} style={styles.searchIcon} />
+        <TextInput
+          style={[styles.searchInput, { color: colors.textHeading }]}
+          placeholder="Search reports..."
+          placeholderTextColor={colors.textMuted}
+          value={searchQuery}
+          onChangeText={handleSearchChange}
+          autoCorrect={false}
+          autoCapitalize="none"
+          returnKeyType="search"
+        />
+        {searchQuery.length > 0 && (
+          <TouchableOpacity onPress={() => { setSearchQuery(''); setDebouncedQuery(''); }} activeOpacity={0.7}>
+            <Ionicons name="close-circle" size={18} color={colors.textMuted} />
+          </TouchableOpacity>
+        )}
+      </View>
+
       {/* Report list */}
       <FlatList
         data={filteredDates}
@@ -355,6 +418,26 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   chipText: { fontSize: 13, fontWeight: '600' },
+
+  // Search bar
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 16,
+    marginBottom: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  searchIcon: {
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    paddingVertical: 2,
+  },
 
   // List
   list: { paddingHorizontal: 16, paddingBottom: 32 },
