@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'expo-router';
 import {
   View,
   Text,
@@ -33,6 +34,7 @@ const IPAD_WIDTH = 768;
 
 export default function MatrixScreen() {
   const { colors } = useTheme();
+  const router = useRouter();
   const { width } = useWindowDimensions();
   const isWide = width >= IPAD_WIDTH;
 
@@ -116,10 +118,11 @@ export default function MatrixScreen() {
       setSimpleInput({
         symbol: selectedTicker,
         strategy: typeIndex === 0 ? 'sell_put' : 'sell_call',
-        otmPct: Math.abs(entry.otmPct),
+        otmPct: Math.abs(entry.otmPct ?? 5),
       });
+      router.navigate('/(tabs)/backtest');
     },
-    [selectedTicker, typeIndex, setSimpleInput]
+    [selectedTicker, typeIndex, setSimpleInput, router]
   );
 
   const handleCompareBacktest = useCallback(() => {
@@ -127,12 +130,15 @@ export default function MatrixScreen() {
       addToPortfolio({
         symbol: selectedTicker,
         strategy: typeIndex === 0 ? 'sell_put' : 'sell_call',
-        otmPct: Math.abs(entry.otmPct),
+        otmPct: Math.abs(entry.otmPct ?? 0),
         period: '6mo',
         strike: entry.strike,
       });
     });
-  }, [comparedEntries, selectedTicker, typeIndex, addToPortfolio]);
+    setCheckedStrikes(new Set());
+    // Switch to Backtest tab (advanced mode)
+    router.navigate('/(tabs)/backtest');
+  }, [comparedEntries, selectedTicker, typeIndex, addToPortfolio, router]);
 
   // ── Render helpers ──
 
