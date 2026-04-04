@@ -35,9 +35,9 @@ function daysAgo(dateStr: string): number {
 
 function ivRankBadge(ivRank: number | undefined): { label: string; color: string } {
   if (ivRank === undefined) return { label: 'N/A', color: '#616161' };
-  if (ivRank >= 70) return { label: `IV ${ivRank.toFixed(0)}%`, color: '#00e676' };
-  if (ivRank >= 40) return { label: `IV ${ivRank.toFixed(0)}%`, color: '#f5c542' };
-  return { label: `IV ${ivRank.toFixed(0)}%`, color: '#ff9800' };
+  if (ivRank >= 70) return { label: `IV ${(ivRank ?? 0).toFixed(0)}%`, color: '#00e676' };
+  if (ivRank >= 40) return { label: `IV ${(ivRank ?? 0).toFixed(0)}%`, color: '#f5c542' };
+  return { label: `IV ${(ivRank ?? 0).toFixed(0)}%`, color: '#ff9800' };
 }
 
 function verdictEmoji(ticker: TickerReport): string {

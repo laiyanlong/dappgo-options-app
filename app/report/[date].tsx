@@ -156,12 +156,12 @@ function PriceCard({ ticker, colors }: { ticker: TickerReport; colors: any }) {
       </View>
 
       <View style={styles.metricsGrid}>
-        <MetricItem label="Avg IV" value={`${ticker.avgIv.toFixed(1)}%`} colors={colors} />
+        <MetricItem label="Avg IV" value={`${(ticker.avgIv ?? 0).toFixed(1)}%`} colors={colors} />
         {ticker.ivRank !== undefined && (
-          <MetricItem label="IV Rank" value={`${ticker.ivRank.toFixed(0)}%`} colors={colors} highlight />
+          <MetricItem label="IV Rank" value={`${(ticker.ivRank ?? 0).toFixed(0)}%`} colors={colors} highlight />
         )}
         {ticker.pcRatio && (
-          <MetricItem label="P/C Ratio" value={ticker.pcRatio.volumeRatio.toFixed(2)} colors={colors} />
+          <MetricItem label="P/C Ratio" value={(ticker.pcRatio?.volumeRatio ?? 0).toFixed(2)} colors={colors} />
         )}
         {ticker.maxPain && (
           <MetricItem label="Max Pain" value={formatDollar(ticker.maxPain.price)} colors={colors} />
@@ -196,7 +196,7 @@ function PriceCard({ ticker, colors }: { ticker: TickerReport; colors: any }) {
             />
           </View>
           <Text style={[styles.ivBarValue, { color: colors.textHeading }]}>
-            {ticker.ivRank.toFixed(0)}%
+            {(ticker.ivRank ?? 0).toFixed(0)}%
           </Text>
         </View>
       )}

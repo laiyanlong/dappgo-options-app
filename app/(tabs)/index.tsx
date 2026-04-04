@@ -260,7 +260,7 @@ export default function DashboardScreen() {
                   <View style={styles.regimeMeta}>
                     {verdict.regime.vix != null && (
                       <Text style={[typography.bodySmall, { color: colors.textMuted }]}>
-                        VIX: {verdict.regime.vix.toFixed(1)}
+                        VIX: {String(verdict?.regime?.vix ?? "N/A")}
                       </Text>
                     )}
                     {verdict.regime.positionSize != null && (
