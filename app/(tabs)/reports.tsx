@@ -9,6 +9,7 @@ import {
   RefreshControl,
   StyleSheet,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../../src/theme';
 import { useAppStore } from '../../src/store/app-store';
@@ -96,6 +97,7 @@ function Chip({
 export default function ReportsScreen() {
   const { colors } = useTheme();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   // Store
   const reportDates = useAppStore((s) => s.reportDates);
@@ -272,7 +274,7 @@ export default function ReportsScreen() {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top + 8 }]}>
       {/* Title */}
       <Text style={[styles.title, { color: colors.textHeading }]}>Reports</Text>
       <Text style={[styles.subtitle, { color: colors.textMuted }]}>

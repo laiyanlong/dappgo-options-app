@@ -9,6 +9,7 @@ import {
   Switch,
   Alert,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../src/theme';
 import { Card } from '../../src/components/ui/Card';
@@ -20,6 +21,7 @@ type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 export default function SettingsScreen() {
   const { colors, isDark, mode } = useTheme();
   const settings = useSettingsStore();
+  const insets = useSafeAreaInsets();
 
   const [newTicker, setNewTicker] = React.useState('');
   const [showGeminiKey, setShowGeminiKey] = React.useState(false);
@@ -44,7 +46,7 @@ export default function SettingsScreen() {
   ];
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
+    <ScrollView style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top + 8 }]}>
       <Text style={[styles.title, { color: colors.textHeading }]}>Settings</Text>
 
       {/* ── Profile ── */}

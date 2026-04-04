@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Modal,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../src/theme';
 import { Card } from '../../src/components/ui/Card';
 import { SegmentedControl } from '../../src/components/ui/SegmentedControl';

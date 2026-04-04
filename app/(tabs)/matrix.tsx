@@ -9,10 +9,12 @@ import {
   ActivityIndicator,
   useWindowDimensions,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../src/theme';
 import { useAppStore } from '../../src/store/app-store';
 import { fetchDashboardData } from '../../src/data/github-api';
 import { GITHUB_OWNER, GITHUB_REPO } from '../../src/utils/constants';
+import { mapTslaMatrix } from '../../src/data/mappers';
 import { useBacktestStore } from '../../src/store/backtest-store';
 import { SegmentedControl } from '../../src/components/ui/SegmentedControl';
 import { StrikeCard, calculateStarRating } from '../../src/components/trade/StrikeCard';
@@ -49,8 +51,8 @@ export default function MatrixScreen() {
       fetchDashboardData(GITHUB_OWNER, GITHUB_REPO)
         .then((data) => {
           setDashboardData(data);
-          const matrix = (data as Record<string, unknown>)?.tsla_matrix;
-          if (matrix) setTslaMatrix(matrix as any);
+          const rawMatrix = (data as Record<string, unknown>)?.tsla_matrix;
+          const mapped = mapTslaMatrix(rawMatrix); if (mapped) setTslaMatrix(mapped);
         })
         .catch(() => {})
         .finally(() => setLoading(false));

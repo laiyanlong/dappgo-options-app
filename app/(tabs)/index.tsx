@@ -10,6 +10,7 @@ import {
   TouchableOpacity,
   Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../src/theme';
 import { typography } from '../../src/theme/typography';
 import { spacing, borderRadius } from '../../src/theme/spacing';
@@ -17,6 +18,7 @@ import { useAppStore } from '../../src/store/app-store';
 import { fetchDashboardData } from '../../src/data/github-api';
 import { GITHUB_OWNER, GITHUB_REPO } from '../../src/utils/constants';
 import { formatDollar, formatPct } from '../../src/utils/format';
+import { mapTslaMatrix } from '../../src/data/mappers';
 import { SparkLine } from '../../src/components/charts/SparkLine';
 import { Card } from '../../src/components/ui/Card';
 import type { TickerVerdict } from '../../src/utils/types';
@@ -69,6 +71,7 @@ function ivSignalColor(signal: string, positive: string, negative: string, muted
 
 export default function DashboardScreen() {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const {
     dashboardData,
     isLoadingDashboard,
@@ -88,9 +91,10 @@ export default function DashboardScreen() {
       const data = await fetchDashboardData(GITHUB_OWNER, GITHUB_REPO);
       setDashboardData(data);
       // Also store tsla_matrix in app-store so Matrix tab can access it
-      const matrix = (data as Record<string, unknown>)?.tsla_matrix;
-      if (matrix) {
-        setTslaMatrix(matrix as any);
+      const rawMatrix = (data as Record<string, unknown>)?.tsla_matrix;
+      if (rawMatrix) {
+        const mapped = mapTslaMatrix(rawMatrix);
+        if (mapped) setTslaMatrix(mapped);
       }
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Failed to load dashboard data';
@@ -226,7 +230,7 @@ export default function DashboardScreen() {
   return (
     <ScrollView
       style={[styles.container, { backgroundColor: colors.background }]}
-      contentContainerStyle={styles.contentContainer}
+      contentContainerStyle={[styles.contentContainer, { paddingTop: insets.top + 8 }]}
       refreshControl={
         <RefreshControl
           refreshing={refreshing}

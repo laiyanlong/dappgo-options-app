@@ -27,10 +27,10 @@ interface StrikeCardProps {
  */
 function calculateStarRating(entry: OptionEntry): number {
   // POP score: 0-5 scale (50% => 2.5, 80% => 4, 90% => 4.5)
-  const popScore = Math.min(5, (entry.pop / 100) * 5);
+  const popScore = Math.min(5, ((entry.pop ?? 0) / 100) * 5);
 
   // Annualized score: 0-5 scale (cap at 100%)
-  const annScore = Math.min(5, (entry.annualized / 100) * 5);
+  const annScore = Math.min(5, ((entry.annualized ?? 0) / 100) * 5);
 
   // Spread score: based on quality label
   const spreadScoreMap: Record<string, number> = {
@@ -61,9 +61,9 @@ export function StrikeCard({
 
   // Color helpers
   const popColor =
-    entry.pop >= 70
+    (entry.pop ?? 0) >= 70
       ? colors.positive
-      : entry.pop >= 50
+      : (entry.pop ?? 0) >= 50
         ? colors.gold
         : colors.negative;
 
@@ -103,8 +103,8 @@ export function StrikeCard({
 
       {/* Row 2: OTM percentage */}
       <Text style={[styles.otmLabel, { color: colors.textMuted }]}>
-        {entry.otmPct >= 0 ? '-' : '+'}
-        {Math.abs(entry.otmPct).toFixed(1)}% OTM
+        {(entry.otmPct ?? 0) >= 0 ? '-' : '+'}
+        {Math.abs(entry.otmPct ?? 0).toFixed(1)}% OTM
       </Text>
 
       {/* Row 3: Bid / Ask / Spread */}
@@ -124,7 +124,7 @@ export function StrikeCard({
         <View style={styles.bidAskItem}>
           <Text style={[styles.metricLabel, { color: colors.textMuted }]}>Spread</Text>
           <Text style={[styles.metricValue, { color: spreadColor }]}>
-            {entry.spreadPct.toFixed(1)}% {entry.spreadQuality}
+            {(entry.spreadPct ?? 0).toFixed(1)}% {entry.spreadQuality ?? ''}
           </Text>
         </View>
       </View>
@@ -133,22 +133,22 @@ export function StrikeCard({
       <View style={styles.boxRow}>
         <View style={[styles.metricBox, { backgroundColor: colors.background, borderColor: colors.border }]}>
           <Text style={[styles.boxLabel, { color: colors.textMuted }]}>IV</Text>
-          <Text style={[styles.boxValue, { color: colors.gold }]}>{entry.iv.toFixed(1)}%</Text>
+          <Text style={[styles.boxValue, { color: colors.gold }]}>{(entry.iv ?? 0).toFixed(1)}%</Text>
         </View>
         <View style={[styles.metricBox, { backgroundColor: colors.background, borderColor: colors.border }]}>
           <Text style={[styles.boxLabel, { color: colors.textMuted }]}>POP</Text>
-          <Text style={[styles.boxValue, { color: popColor }]}>{entry.pop.toFixed(1)}%</Text>
+          <Text style={[styles.boxValue, { color: popColor }]}>{(entry.pop ?? 0).toFixed(1)}%</Text>
         </View>
         <View style={[styles.metricBox, { backgroundColor: colors.background, borderColor: colors.border }]}>
           <Text style={[styles.boxLabel, { color: colors.textMuted }]}>Ann</Text>
-          <Text style={[styles.boxValue, { color: colors.accent }]}>{entry.annualized.toFixed(1)}%</Text>
+          <Text style={[styles.boxValue, { color: colors.accent }]}>{(entry.annualized ?? 0).toFixed(1)}%</Text>
         </View>
       </View>
 
       {/* Row 5: Greeks + volume */}
       <View style={styles.greeksRow}>
         <Text style={[styles.greekText, { color: colors.textMuted }]}>
-          Delta: {entry.delta.toFixed(2)}
+          Delta: {(entry.delta ?? 0).toFixed(2)}
         </Text>
         <Text style={[styles.greekText, { color: colors.textMuted }]}>
           Vol: {formatVolume(entry.volume)}
