@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "dappgo-options-app",
+    "name": "DappGo Options",
     "slug": "dappgo-options-app",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -11,10 +11,14 @@
     "splash": {
       "image": "./assets/images/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#1a1a2e"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.dappgo.options",
+      "infoPlist": {
+        "CFBundleDisplayName": "DappGo Options"
+      }
     },
     "android": {
       "adaptiveIcon": {

@@ -2,6 +2,7 @@ import React from 'react';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { ThemeProvider, useTheme } from '../../src/theme';
+import { ErrorBoundary } from '../../src/components/ui/ErrorBoundary';
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -27,6 +28,7 @@ function TabNavigator() {
           fontSize: 11,
           fontWeight: '600',
         },
+        animation: 'fade',
       }}
     >
       <Tabs.Screen
@@ -81,7 +83,9 @@ function TabNavigator() {
 export default function TabLayout() {
   return (
     <ThemeProvider>
-      <TabNavigator />
+      <ErrorBoundary>
+        <TabNavigator />
+      </ErrorBoundary>
     </ThemeProvider>
   );
 }

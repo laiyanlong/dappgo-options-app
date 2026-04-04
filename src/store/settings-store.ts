@@ -8,8 +8,7 @@ interface SettingsState {
   tickers: string[];
   githubUsername: string;
   githubRepo: string;
-  geminiApiKey: string;
-  alphaVantageKey: string;
+  hasCompletedOnboarding: boolean;
   notifications: {
     dailyReport: boolean;
     highCpAlert: boolean;
@@ -22,8 +21,7 @@ interface SettingsState {
   removeTicker: (ticker: string) => void;
   setGithubUsername: (username: string) => void;
   setGithubRepo: (repo: string) => void;
-  setGeminiApiKey: (key: string) => void;
-  setAlphaVantageKey: (key: string) => void;
+  setHasCompletedOnboarding: (value: boolean) => void;
   setNotification: (key: keyof SettingsState['notifications'], value: boolean) => void;
 }
 
@@ -35,8 +33,7 @@ export const useSettingsStore = create<SettingsState>()(
       tickers: ['TSLA', 'AMZN', 'NVDA'],
       githubUsername: 'laiyanlong',
       githubRepo: 'options-daily-report',
-      geminiApiKey: '',
-      alphaVantageKey: '',
+      hasCompletedOnboarding: false,
       notifications: {
         dailyReport: true,
         highCpAlert: true,
@@ -57,8 +54,7 @@ export const useSettingsStore = create<SettingsState>()(
         })),
       setGithubUsername: (username) => set({ githubUsername: username }),
       setGithubRepo: (repo) => set({ githubRepo: repo }),
-      setGeminiApiKey: (key) => set({ geminiApiKey: key }),
-      setAlphaVantageKey: (key) => set({ alphaVantageKey: key }),
+      setHasCompletedOnboarding: (value) => set({ hasCompletedOnboarding: value }),
       setNotification: (key, value) =>
         set((s) => ({
           notifications: { ...s.notifications, [key]: value },

@@ -17,10 +17,16 @@ import { spacing, borderRadius } from '../../src/theme/spacing';
 import { useAppStore } from '../../src/store/app-store';
 import { fetchDashboardData } from '../../src/data/github-api';
 import { GITHUB_OWNER, GITHUB_REPO } from '../../src/utils/constants';
-import { formatDollar, formatPct } from '../../src/utils/format';
+import { formatDollar, formatPct, formatStrategy } from '../../src/utils/format';
 import { mapTslaMatrix } from '../../src/data/mappers';
+import { probabilityOfProfit } from '../../src/engine/pop';
 import { SparkLine } from '../../src/components/charts/SparkLine';
 import { Card } from '../../src/components/ui/Card';
+import { UpgradePrompt } from '../../src/components/ui/UpgradePrompt';
+import { PoweredByDappGo } from '../../src/components/ui/PoweredByDappGo';
+import { FadeIn } from '../../src/components/ui/FadeIn';
+import { WelcomeCard } from '../../src/components/onboarding/WelcomeCard';
+import { lightHaptic } from '../../src/utils/haptics';
 import type { TickerVerdict } from '../../src/utils/types';
 
 // ── Type helpers for dashboard JSON ──
@@ -38,7 +44,7 @@ interface TopPick {
   strategy: string;
   strike: number;
   premium: number;
-  pop: number;
+  pop: number | null; // null when live price unavailable
   annualized: number;
   expiry?: string;
   dte?: number;
@@ -135,17 +141,30 @@ export default function DashboardScreen() {
     : null;
 
   // Top picks from strike_comparison (map fields to match TopPick interface)
+  // POP is calculated locally since strike_comparison doesn't include it
   const rawStrikes = (dd?.strike_comparison as Record<string, unknown>[]) ?? [];
-  const topPicks: TopPick[] = rawStrikes.slice(0, 4).map((s: any) => ({
-    symbol: s.symbol ?? '',
-    strategy: s.strategy ?? 'sell_put',
-    strike: s.strike ?? 0,
-    premium: s.premium ?? 0,
-    pop: s.pop ?? 0,
-    annualized: s.annualized ?? 0,
-    expiry: s.expiry ?? '',
-    dte: s.dte ?? 0,
-  }));
+  const topPicks: TopPick[] = rawStrikes.slice(0, 4).map((s: any) => {
+    const symbol: string = s.symbol ?? '';
+    const strike: number = s.strike ?? 0;
+    const dte: number = s.dte ?? 0;
+    const iv: number = s.iv ?? 30;
+    const strategy: string = s.strategy ?? 'sell_put';
+    const livePrice = livePrices.find((lp) => lp.symbol === symbol)?.price;
+    const optionType: 'put' | 'call' = strategy.includes('call') ? 'call' : 'put';
+    const pop = livePrice != null && strike > 0 && dte > 0
+      ? probabilityOfProfit(strike, livePrice, dte, iv, optionType)
+      : null;
+    return {
+      symbol,
+      strategy,
+      strike,
+      premium: s.premium ?? 0,
+      pop,
+      annualized: s.annualized ?? 0,
+      expiry: s.expiry ?? '',
+      dte,
+    };
+  });
 
   // ── Loading state ──
 
@@ -160,21 +179,42 @@ export default function DashboardScreen() {
     );
   }
 
-  // ── Error state ──
+  // ── Error / empty state — show welcome card ──
 
-  if (error && !dashboardData) {
+  if ((error || !dashboardData) && !isLoadingDashboard) {
     return (
-      <View style={[styles.centered, { backgroundColor: colors.background }]}>
-        <Text style={[styles.errorEmoji]}>!</Text>
-        <Text style={[styles.errorText, { color: colors.negative }]}>{error}</Text>
-        <TouchableOpacity
-          style={[styles.retryBtn, { backgroundColor: colors.accent }]}
-          onPress={loadData}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.retryText}>Retry</Text>
-        </TouchableOpacity>
-      </View>
+      <ScrollView
+        style={[styles.container, { backgroundColor: colors.background }]}
+        contentContainerStyle={[styles.centered, { paddingTop: insets.top + 8 }]}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.accent}
+          />
+        }
+      >
+        <View style={[styles.welcomeCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Text style={[styles.welcomeTitle, { color: colors.gold }]}>
+            Welcome to DappGo Options
+          </Text>
+          <Text style={[styles.welcomeBody, { color: colors.textMuted }]}>
+            Pull down to load market data
+          </Text>
+          {error && (
+            <Text style={[styles.welcomeError, { color: colors.negative }]}>
+              {error}
+            </Text>
+          )}
+          <TouchableOpacity
+            style={[styles.retryBtn, { backgroundColor: colors.accent }]}
+            onPress={loadData}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.retryText}>Load Data</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
     );
   }
 
@@ -260,19 +300,21 @@ export default function DashboardScreen() {
 
       {/* ── Live Price Cards ── */}
       {livePrices.length > 0 && (
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.textHeading }]}>
-            Live Prices
-          </Text>
-          <FlatList
-            data={livePrices}
-            renderItem={renderPriceCard}
-            keyExtractor={(item) => item.symbol}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.priceListContent}
-          />
-        </View>
+        <FadeIn>
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: colors.textHeading }]}>
+              Live Prices
+            </Text>
+            <FlatList
+              data={livePrices}
+              renderItem={renderPriceCard}
+              keyExtractor={(item) => item.symbol}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.priceListContent}
+            />
+          </View>
+        </FadeIn>
       )}
 
       {/* ── Market Summary ── */}
@@ -283,7 +325,7 @@ export default function DashboardScreen() {
           </Text>
           <Card>
             {/* Backtest stats from summary */}
-            {dd.summary && (() => {
+            {dd.summary != null ? (() => {
               const s = dd.summary as Record<string, number>;
               return (
                 <View>
@@ -313,7 +355,7 @@ export default function DashboardScreen() {
                   </View>
 
                   {/* Ticker stats */}
-                  {dd.ticker_stats && (
+                  {dd.ticker_stats != null ? (
                     <View style={[styles.tickerVerdicts, { borderTopColor: colors.border }]}>
                       {Object.entries(dd.ticker_stats as Record<string, any>).map(([sym, ts]) => (
                         <View key={sym} style={styles.tickerRow}>
@@ -330,10 +372,10 @@ export default function DashboardScreen() {
                         </View>
                       ))}
                     </View>
-                  )}
+                  ) : null}
                 </View>
               );
-            })()}
+            })() : null}
           </Card>
         </View>
       )}
@@ -351,7 +393,7 @@ export default function DashboardScreen() {
                   {pick.symbol}
                 </Text>
                 <Text style={[styles.pickStrategy, { color: colors.accent }]}>
-                  {pick.strategy}
+                  {formatStrategy(pick.strategy)}
                 </Text>
               </View>
 
@@ -371,7 +413,7 @@ export default function DashboardScreen() {
                 <View style={styles.pickCell}>
                   <Text style={[styles.pickLabel, { color: colors.textMuted }]}>POP</Text>
                   <Text style={[styles.pickNum, { color: colors.textHeading }]}>
-                    {formatPct(pick.pop, 0)}
+                    {pick.pop != null ? formatPct(pick.pop, 0) : 'N/A'}
                   </Text>
                 </View>
                 <View style={styles.pickCell}>
@@ -392,8 +434,19 @@ export default function DashboardScreen() {
         </View>
       )}
 
+      {/* ── Upgrade Prompt ── */}
+      <FadeIn delay={300}>
+        <UpgradePrompt />
+      </FadeIn>
+
+      {/* ── Footer branding ── */}
+      <PoweredByDappGo />
+
       {/* Bottom spacer for tab bar */}
       <View style={{ height: spacing.xxxl }} />
+
+      {/* ── Onboarding overlay ── */}
+      <WelcomeCard />
     </ScrollView>
   );
 }
@@ -438,6 +491,30 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '600',
     fontSize: 15,
+  },
+  welcomeCard: {
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    padding: spacing.xl,
+    alignItems: 'center',
+    width: '100%',
+    maxWidth: 360,
+  },
+  welcomeTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    marginBottom: spacing.sm,
+    textAlign: 'center',
+  },
+  welcomeBody: {
+    ...typography.body,
+    textAlign: 'center',
+    marginBottom: spacing.md,
+  },
+  welcomeError: {
+    ...typography.bodySmall,
+    textAlign: 'center',
+    marginBottom: spacing.md,
   },
 
   // Sections

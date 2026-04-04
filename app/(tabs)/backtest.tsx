@@ -16,6 +16,7 @@ import { SegmentedControl } from '../../src/components/ui/SegmentedControl';
 import { StarRating } from '../../src/components/ui/StarRating';
 import { useBacktestStore } from '../../src/store/backtest-store';
 import { useSettingsStore } from '../../src/store/settings-store';
+import { useAppStore } from '../../src/store/app-store';
 import { runBacktest } from '../../src/engine/backtest';
 import {
   generateTickerPrices,
@@ -23,6 +24,12 @@ import {
 } from '../../src/data/sample-prices';
 import { formatDollar } from '../../src/utils/format';
 import type { BacktestInput, BacktestResult } from '../../src/utils/types';
+
+interface LivePrice {
+  symbol: string;
+  price: number;
+  change_pct: number;
+}
 
 // ── Strategy definitions ──
 const STRATEGIES: { key: BacktestInput['strategy']; label: string }[] = [
@@ -74,6 +81,29 @@ export default function BacktestScreen() {
   const [computing, setComputing] = useState(false);
   const [addModalVisible, setAddModalVisible] = useState(false);
 
+  // Dashboard data for enriching sample prices with real starting prices
+  const dashboardData = useAppStore((s) => s.dashboardData);
+  const livePrices: LivePrice[] = (dashboardData as Record<string, unknown> | null)?.live_prices as LivePrice[] ?? [];
+
+  /**
+   * Generate prices enriched with real starting price from live data when available.
+   */
+  const getEnrichedPrices = useCallback(
+    (symbol: string, days: number) => {
+      const { prices, dates } = generateTickerPrices(symbol, days + 60);
+      const realPrice = livePrices.find((lp) => lp.symbol === symbol)?.price;
+      if (realPrice && prices.length > 0) {
+        // Scale sample prices so the starting price matches the real price
+        const scale = realPrice / prices[0];
+        for (let i = 0; i < prices.length; i++) {
+          prices[i] = Math.round(prices[i] * scale * 100) / 100;
+        }
+      }
+      return { prices, dates };
+    },
+    [livePrices]
+  );
+
   // Advanced mode form state
   const [newTicker, setNewTicker] = useState('TSLA');
   const [newStrategy, setNewStrategy] = useState<BacktestInput['strategy']>('sell_put');
@@ -87,7 +117,7 @@ export default function BacktestScreen() {
     // Use setTimeout to let the UI show the loading state
     setTimeout(() => {
       const days = periodToTradingDays(simpleInput.period);
-      const { prices, dates } = generateTickerPrices(simpleInput.symbol, days + 60);
+      const { prices, dates } = getEnrichedPrices(simpleInput.symbol, days);
       const input: BacktestInput = {
         symbol: simpleInput.symbol,
         strategy: simpleInput.strategy,
@@ -101,7 +131,7 @@ export default function BacktestScreen() {
       }
       setComputing(false);
     }, 50);
-  }, [simpleInput, clearResults, setResults]);
+  }, [simpleInput, clearResults, setResults, getEnrichedPrices]);
 
   // ── Run all portfolio backtests (advanced mode) ──
   const runAll = useCallback(() => {
@@ -112,7 +142,7 @@ export default function BacktestScreen() {
       const allResults: BacktestResult[] = [];
       for (const input of portfolio) {
         const days = periodToTradingDays(input.period);
-        const { prices, dates } = generateTickerPrices(input.symbol, days + 60);
+        const { prices, dates } = getEnrichedPrices(input.symbol, days);
         const result = runBacktest(prices, dates, input);
         if (result) {
           result.rating = computeRating(result);
@@ -122,7 +152,7 @@ export default function BacktestScreen() {
       setResults(allResults);
       setComputing(false);
     }, 50);
-  }, [portfolio, clearResults, setResults]);
+  }, [portfolio, clearResults, setResults, getEnrichedPrices]);
 
   // ── Add to portfolio ──
   const handleAddPosition = useCallback(() => {
@@ -564,6 +594,9 @@ export default function BacktestScreen() {
           <Text style={[styles.resultsTitle, { color: colors.textHeading }]}>
             Results
           </Text>
+          <Text style={[styles.simNote, { color: colors.textMuted }]}>
+            Using simulated prices. Real historical data coming soon.
+          </Text>
 
           {/* ── Best Pick Banner (multi-result only) ── */}
           {bestPick && (
@@ -1000,7 +1033,8 @@ const styles = StyleSheet.create({
 
   // Results
   divider: { height: 1, marginVertical: 20 },
-  resultsTitle: { fontSize: 22, fontWeight: '700', marginBottom: 16 },
+  resultsTitle: { fontSize: 22, fontWeight: '700', marginBottom: 4 },
+  simNote: { fontSize: 12, fontStyle: 'italic', marginBottom: 16 },
 
   // Best pick banner
   bestBanner: {

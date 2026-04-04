@@ -53,6 +53,19 @@ export function safeFixed(value: number | undefined | null, decimals = 1): strin
   return value.toFixed(decimals);
 }
 
+/**
+ * Format a snake_case strategy name into a pretty title.
+ * e.g. "sell_put" -> "Sell Put", "iron_condor" -> "Iron Condor"
+ */
+export function formatStrategy(strategy: string | undefined | null): string {
+  if (!strategy) return '';
+  return strategy
+    .toLowerCase()
+    .split('_')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
+
 export function starRating(score: number | undefined | null, max = 5): string {
   if (score == null || isNaN(score)) return '☆'.repeat(max);
   const filled = Math.min(Math.max(Math.round(score), 0), max);

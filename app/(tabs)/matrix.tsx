@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
+  RefreshControl,
   useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -44,6 +45,12 @@ export default function MatrixScreen() {
   const setMatrix = useAppStore((s) => s.setMatrix);
   const setDashboardData = useAppStore((s) => s.setDashboardData);
   const quotes = useAppStore((s) => s.quotes);
+
+  // ── Local UI state (before useEffect so they can be referenced) ──
+  const [selectedTicker, setSelectedTicker] = useState<Ticker>('TSLA');
+  const [selectedExpiryIdx, setSelectedExpiryIdx] = useState(0);
+  const [typeIndex, setTypeIndex] = useState(0);
+  const [checkedStrikes, setCheckedStrikes] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(false);
 
   // Auto-fetch if no matrix data for selected ticker
@@ -75,11 +82,34 @@ export default function MatrixScreen() {
     }
   }, [selectedTicker, matrices]);
 
-  // ── Local UI state ──
-  const [selectedTicker, setSelectedTicker] = useState<Ticker>('TSLA');
-  const [selectedExpiryIdx, setSelectedExpiryIdx] = useState(0);
-  const [typeIndex, setTypeIndex] = useState(0); // 0 = Sell Put, 1 = Sell Call
-  const [checkedStrikes, setCheckedStrikes] = useState<Set<number>>(new Set());
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Pull-to-refresh handler
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      const data = await fetchDashboardData(GITHUB_OWNER, GITHUB_REPO);
+      setDashboardData(data);
+      const allMatrices = (data as Record<string, unknown>)?.options_matrices as Record<string, unknown> | undefined;
+      if (allMatrices) {
+        for (const [sym, raw] of Object.entries(allMatrices)) {
+          const mapped = mapTslaMatrix(raw);
+          if (mapped) setMatrix(sym, mapped);
+        }
+      }
+      if (!allMatrices) {
+        const raw = (data as Record<string, unknown>)?.tsla_matrix;
+        if (raw) {
+          const mapped = mapTslaMatrix(raw);
+          if (mapped) setMatrix('TSLA', mapped);
+        }
+      }
+    } catch {
+      // silently ignore
+    } finally {
+      setRefreshing(false);
+    }
+  }, [setDashboardData, setMatrix]);
 
   // ── Resolve matrix data for current ticker ──
   const matrix: StrikeComparison | null = matrices[selectedTicker] ?? null;
@@ -207,7 +237,7 @@ export default function MatrixScreen() {
                   .then((data) => {
                     setDashboardData(data);
                     const m = (data as Record<string, unknown>)?.tsla_matrix;
-                    if (m) setTslaMatrix(m as any);
+                    const mapped = mapTslaMatrix(m); if (mapped) setMatrix('TSLA', mapped);
                   })
                   .catch(() => {})
                   .finally(() => setLoading(false));
@@ -361,6 +391,13 @@ export default function MatrixScreen() {
           numColumns={isWide ? 2 : 1}
           key={isWide ? 'wide' : 'narrow'} // Force re-mount when numColumns changes
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.accent}
+            />
+          }
         />
       )}
 

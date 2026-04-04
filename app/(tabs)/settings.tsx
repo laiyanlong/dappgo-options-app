@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   ScrollView,
   View,
@@ -14,7 +14,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../src/theme';
 import { Card } from '../../src/components/ui/Card';
 import { Badge } from '../../src/components/ui/Badge';
+import { PoweredByDappGo } from '../../src/components/ui/PoweredByDappGo';
 import { useSettingsStore } from '../../src/store/settings-store';
+import { getSecureKey, setSecureKey } from '../../src/data/secure-keys';
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -25,6 +27,26 @@ export default function SettingsScreen() {
 
   const [newTicker, setNewTicker] = React.useState('');
   const [showGeminiKey, setShowGeminiKey] = React.useState(false);
+
+  // API keys stored in SecureStore, not in Zustand
+  const [geminiApiKey, setGeminiApiKeyLocal] = React.useState('');
+  const [alphaVantageKey, setAlphaVantageKeyLocal] = React.useState('');
+
+  useEffect(() => {
+    // Load keys from SecureStore on mount
+    getSecureKey('geminiApiKey').then(setGeminiApiKeyLocal);
+    getSecureKey('alphaVantageKey').then(setAlphaVantageKeyLocal);
+  }, []);
+
+  const handleGeminiKeyChange = (value: string) => {
+    setGeminiApiKeyLocal(value);
+    setSecureKey('geminiApiKey', value);
+  };
+
+  const handleAlphaVantageKeyChange = (value: string) => {
+    setAlphaVantageKeyLocal(value);
+    setSecureKey('alphaVantageKey', value);
+  };
 
   const handleAddTicker = () => {
     const t = newTicker.trim().toUpperCase();
@@ -126,8 +148,8 @@ export default function SettingsScreen() {
           <View style={styles.keyRow}>
             <TextInput
               style={[styles.input, { flex: 1, color: colors.textHeading, borderColor: colors.border }]}
-              value={settings.geminiApiKey}
-              onChangeText={settings.setGeminiApiKey}
+              value={geminiApiKey}
+              onChangeText={handleGeminiKeyChange}
               placeholder="AIza..."
               placeholderTextColor={colors.tabInactive}
               secureTextEntry={!showGeminiKey}
@@ -141,8 +163,8 @@ export default function SettingsScreen() {
           <Text style={[styles.inputLabel, { color: colors.textMuted }]}>Alpha Vantage Key</Text>
           <TextInput
             style={[styles.input, { color: colors.textHeading, borderColor: colors.border }]}
-            value={settings.alphaVantageKey}
-            onChangeText={settings.setAlphaVantageKey}
+            value={alphaVantageKey}
+            onChangeText={handleAlphaVantageKeyChange}
             placeholder="Free key from alphavantage.co"
             placeholderTextColor={colors.tabInactive}
           />
@@ -249,13 +271,7 @@ export default function SettingsScreen() {
       </Card>
 
       {/* ── Branding ── */}
-      <View style={styles.branding}>
-        <Text style={[styles.brandTitle, { color: colors.gold }]}>DappGo</Text>
-        <Text style={[styles.brandSub, { color: colors.textMuted }]}>
-          AI Automation for Enterprise
-        </Text>
-        <Text style={[styles.brandUrl, { color: colors.accent }]}>dappgo.com</Text>
-      </View>
+      <PoweredByDappGo />
     </ScrollView>
   );
 }
