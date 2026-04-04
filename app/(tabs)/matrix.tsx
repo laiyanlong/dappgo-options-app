@@ -34,6 +34,7 @@ const IPAD_WIDTH = 768;
 
 export default function MatrixScreen() {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { width } = useWindowDimensions();
   const isWide = width >= IPAD_WIDTH;
@@ -163,7 +164,7 @@ export default function MatrixScreen() {
   // ── Empty / Loading state ──
   if (!matrix) {
     return (
-      <View style={[styles.emptyContainer, { backgroundColor: colors.background }]}>
+      <View style={[styles.emptyContainer, { backgroundColor: colors.background, paddingTop: insets.top + 12 }]}>
         {loading ? (
           <>
             <ActivityIndicator size="large" color={colors.accent} />
@@ -180,7 +181,7 @@ export default function MatrixScreen() {
             <Text style={[styles.emptySubtitle, { color: colors.textMuted }]}>
               {selectedTicker === 'TSLA'
                 ? 'Data loading failed. Check your connection.'
-                : `Matrix data for ${selectedTicker} is not yet available`}
+                : `${selectedTicker} matrix coming soon.\nCurrently only TSLA has live options data.\nSelect TSLA to view strike comparison.`}
             </Text>
             <TouchableOpacity
               style={[styles.retryBtn, { backgroundColor: colors.accent }]}
@@ -205,7 +206,7 @@ export default function MatrixScreen() {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top + 12 }]}>
       {/* ── Header ── */}
       <View style={styles.header}>
         <Text style={[styles.title, { color: colors.textHeading }]}>Options Matrix</Text>
@@ -438,21 +439,22 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: 16,
-    paddingTop: 12,
+    paddingTop: 4,
+    marginBottom: 12,
   },
   title: {
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: '700',
-    marginBottom: 2,
+    marginBottom: 4,
   },
   subtitle: {
-    fontSize: 14,
-    marginBottom: 12,
+    fontSize: 13,
+    marginBottom: 4,
   },
   // Ticker chips
   tickerRow: {
     maxHeight: 56,
-    marginBottom: 8,
+    marginBottom: 12,
   },
   tickerContent: {
     paddingHorizontal: 16,
