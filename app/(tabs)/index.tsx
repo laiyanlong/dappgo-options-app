@@ -79,19 +79,26 @@ export default function DashboardScreen() {
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
+  const setTslaMatrix = useAppStore((s) => s.setTslaMatrix);
+
   const loadData = useCallback(async () => {
     try {
       setError(null);
       setLoading('isLoadingDashboard', true);
       const data = await fetchDashboardData(GITHUB_OWNER, GITHUB_REPO);
       setDashboardData(data);
+      // Also store tsla_matrix in app-store so Matrix tab can access it
+      const matrix = (data as Record<string, unknown>)?.tsla_matrix;
+      if (matrix) {
+        setTslaMatrix(matrix as any);
+      }
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Failed to load dashboard data';
       setError(msg);
     } finally {
       setLoading('isLoadingDashboard', false);
     }
-  }, [setDashboardData, setLoading]);
+  }, [setDashboardData, setTslaMatrix, setLoading]);
 
   useEffect(() => {
     loadData();
@@ -104,13 +111,27 @@ export default function DashboardScreen() {
   }, [loadData]);
 
   // ── Parse dashboard data ──
+  const dd = dashboardData as Record<string, unknown> | null;
 
-  const livePrices: LivePrice[] = (dashboardData as Record<string, unknown>)?.live_prices as LivePrice[] ?? [];
-  const verdict: DashboardVerdict | null =
-    ((dashboardData as Record<string, unknown>)?.model_verdict as DashboardVerdict) ??
-    ((dashboardData as Record<string, unknown>)?.tsla_matrix ? { regime: { name: 'Unknown' } } : null);
-  const topPicks: TopPick[] = (dashboardData as Record<string, unknown>)?.top_picks as TopPick[] ??
-    ((dashboardData as Record<string, unknown>)?.strike_comparison as TopPick[] ?? []).slice(0, 3);
+  const livePrices: LivePrice[] = (dd?.live_prices as LivePrice[]) ?? [];
+
+  // Build verdict from tsla_matrix or summary data (model_verdict not in data.json)
+  const verdict: DashboardVerdict | null = dd?.tsla_matrix
+    ? { regime: { name: 'Active', vix: undefined, hv20: undefined, positionSize: undefined, strategies: [] } }
+    : null;
+
+  // Top picks from strike_comparison (map fields to match TopPick interface)
+  const rawStrikes = (dd?.strike_comparison as Record<string, unknown>[]) ?? [];
+  const topPicks: TopPick[] = rawStrikes.slice(0, 4).map((s: any) => ({
+    symbol: s.symbol ?? '',
+    strategy: s.strategy ?? 'sell_put',
+    strike: s.strike ?? 0,
+    premium: s.premium ?? 0,
+    pop: s.pop ?? 0,
+    annualized: s.annualized ?? 0,
+    expiry: s.expiry ?? '',
+    dte: s.dte ?? 0,
+  }));
 
   // ── Loading state ──
 
@@ -240,83 +261,65 @@ export default function DashboardScreen() {
         </View>
       )}
 
-      {/* ── Model Verdict Banner ── */}
-      {verdict && (
+      {/* ── Market Summary ── */}
+      {dd && (
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.textHeading }]}>
-            Model Verdict
+            Market Summary
           </Text>
           <Card>
-            {/* Regime header row */}
-            {verdict.regime && (
-              <View style={styles.regimeRow}>
-                <Text style={[styles.regimeEmoji]}>
-                  {regimeEmoji(verdict.regime.name)}
-                </Text>
-                <View style={styles.regimeInfo}>
-                  <Text style={[styles.regimeName, { color: colors.gold }]}>
-                    {verdict.regime.name.toUpperCase()}
-                  </Text>
-                  <View style={styles.regimeMeta}>
-                    {verdict.regime.vix != null && (
-                      <Text style={[typography.bodySmall, { color: colors.textMuted }]}>
-                        VIX: {String(verdict?.regime?.vix ?? "N/A")}
+            {/* Backtest stats from summary */}
+            {dd.summary && (() => {
+              const s = dd.summary as Record<string, number>;
+              return (
+                <View>
+                  <View style={styles.summaryGrid}>
+                    <View style={styles.summaryItem}>
+                      <Text style={[styles.summaryValue, { color: colors.gold }]}>{s.total_trades ?? 0}</Text>
+                      <Text style={[styles.summaryLabel, { color: colors.textMuted }]}>Trades</Text>
+                    </View>
+                    <View style={styles.summaryItem}>
+                      <Text style={[styles.summaryValue, { color: (s.win_rate ?? 0) >= 60 ? colors.positive : colors.negative }]}>
+                        {(s.win_rate ?? 0).toFixed(1)}%
                       </Text>
-                    )}
-                    {verdict.regime.positionSize != null && (
-                      <Text style={[typography.bodySmall, { color: colors.textMuted, marginLeft: spacing.md }]}>
-                        Position: {verdict.regime.positionSize}%
+                      <Text style={[styles.summaryLabel, { color: colors.textMuted }]}>Win Rate</Text>
+                    </View>
+                    <View style={styles.summaryItem}>
+                      <Text style={[styles.summaryValue, { color: (s.sharpe_ratio ?? 0) >= 0 ? colors.positive : colors.negative }]}>
+                        {(s.sharpe_ratio ?? 0).toFixed(2)}
                       </Text>
-                    )}
+                      <Text style={[styles.summaryLabel, { color: colors.textMuted }]}>Sharpe</Text>
+                    </View>
+                    <View style={styles.summaryItem}>
+                      <Text style={[styles.summaryValue, { color: (s.profit_factor ?? 0) >= 1 ? colors.positive : colors.negative }]}>
+                        {(s.profit_factor ?? 0).toFixed(2)}
+                      </Text>
+                      <Text style={[styles.summaryLabel, { color: colors.textMuted }]}>P. Factor</Text>
+                    </View>
                   </View>
+
+                  {/* Ticker stats */}
+                  {dd.ticker_stats && (
+                    <View style={[styles.tickerVerdicts, { borderTopColor: colors.border }]}>
+                      {Object.entries(dd.ticker_stats as Record<string, any>).map(([sym, ts]) => (
+                        <View key={sym} style={styles.tickerRow}>
+                          <Text style={[styles.tickerSymbol, { color: colors.gold }]}>{sym}</Text>
+                          <Text style={[styles.tickerIv, { color: (ts.win_rate ?? 0) >= 60 ? colors.positive : colors.textMuted }]}>
+                            WR {(ts.win_rate ?? 0).toFixed(0)}%
+                          </Text>
+                          <Text style={[styles.tickerDir, { color: colors.textMuted }]}>
+                            {ts.trades ?? 0} trades
+                          </Text>
+                          <Text style={[styles.tickerVerdict, { color: (ts.total_pnl ?? 0) >= 0 ? colors.positive : colors.negative }]}>
+                            {formatDollar(ts.total_pnl ?? 0)}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
                 </View>
-              </View>
-            )}
-
-            {/* Ticker verdicts */}
-            {verdict.tickers && verdict.tickers.length > 0 && (
-              <View style={[styles.tickerVerdicts, { borderTopColor: colors.border }]}>
-                {verdict.tickers.map((t) => (
-                  <View key={t.symbol} style={styles.tickerRow}>
-                    <Text style={[styles.tickerSymbol, { color: colors.textHeading }]}>
-                      {t.symbol}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.tickerIv,
-                        { color: ivSignalColor(t.ivSignal, colors.positive, colors.negative, colors.textMuted) },
-                      ]}
-                    >
-                      {t.ivSignal}
-                    </Text>
-                    <Text style={[styles.tickerDir, { color: colors.textMuted }]}>
-                      {t.direction}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.tickerVerdict,
-                        { color: colors.accent },
-                      ]}
-                      numberOfLines={1}
-                    >
-                      {t.verdict}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            )}
-
-            {/* Overall conclusion */}
-            {verdict.overallConclusion && (
-              <Text
-                style={[
-                  typography.bodySmall,
-                  { color: colors.textMuted, marginTop: spacing.sm },
-                ]}
-              >
-                {verdict.overallConclusion}
-              </Text>
-            )}
+              );
+            })()}
           </Card>
         </View>
       )}
@@ -520,6 +523,27 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 12,
     fontWeight: '600',
+  },
+
+  // Summary grid
+  summaryGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: spacing.sm,
+  },
+  summaryItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  summaryValue: {
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  summaryLabel: {
+    fontSize: 10,
+    marginTop: 2,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
 
   // Top picks
