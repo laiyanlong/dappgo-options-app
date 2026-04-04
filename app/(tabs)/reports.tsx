@@ -190,7 +190,7 @@ export default function ReportsScreen() {
 
       return (
         <Card
-          onPress={() => router.push(`/report/${date}`)}
+          onPress={() => router.push({ pathname: '/report/[date]', params: { date } })}
           style={{ borderColor: colors.border }}
         >
           {/* Header row */}

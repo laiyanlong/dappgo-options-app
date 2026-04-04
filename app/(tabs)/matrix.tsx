@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -6,10 +6,13 @@ import {
   ScrollView,
   TouchableOpacity,
   StyleSheet,
+  ActivityIndicator,
   useWindowDimensions,
 } from 'react-native';
 import { useTheme } from '../../src/theme';
 import { useAppStore } from '../../src/store/app-store';
+import { fetchDashboardData } from '../../src/data/github-api';
+import { GITHUB_OWNER, GITHUB_REPO } from '../../src/utils/constants';
 import { useBacktestStore } from '../../src/store/backtest-store';
 import { SegmentedControl } from '../../src/components/ui/SegmentedControl';
 import { StrikeCard, calculateStarRating } from '../../src/components/trade/StrikeCard';
@@ -33,7 +36,26 @@ export default function MatrixScreen() {
 
   // ── Store data ──
   const tslaMatrix = useAppStore((s) => s.tslaMatrix);
+  const dashboardData = useAppStore((s) => s.dashboardData);
+  const setTslaMatrix = useAppStore((s) => s.setTslaMatrix);
+  const setDashboardData = useAppStore((s) => s.setDashboardData);
   const quotes = useAppStore((s) => s.quotes);
+  const [loading, setLoading] = useState(false);
+
+  // Auto-fetch if no matrix data
+  useEffect(() => {
+    if (!tslaMatrix && !loading) {
+      setLoading(true);
+      fetchDashboardData(GITHUB_OWNER, GITHUB_REPO)
+        .then((data) => {
+          setDashboardData(data);
+          const matrix = (data as Record<string, unknown>)?.tsla_matrix;
+          if (matrix) setTslaMatrix(matrix as any);
+        })
+        .catch(() => {})
+        .finally(() => setLoading(false));
+    }
+  }, [tslaMatrix]);
 
   // ── Local UI state ──
   const [selectedTicker, setSelectedTicker] = useState<Ticker>('TSLA');
@@ -130,19 +152,46 @@ export default function MatrixScreen() {
 
   const keyExtractor = useCallback((item: OptionEntry) => `${item.strike}`, []);
 
-  // ── Empty state ──
+  // ── Empty / Loading state ──
   if (!matrix) {
     return (
       <View style={[styles.emptyContainer, { backgroundColor: colors.background }]}>
-        <Text style={[styles.emptyIcon, { color: colors.textMuted }]}>{'\u26A0'}</Text>
-        <Text style={[styles.emptyTitle, { color: colors.textHeading }]}>
-          No Matrix Data
-        </Text>
-        <Text style={[styles.emptySubtitle, { color: colors.textMuted }]}>
-          {selectedTicker === 'TSLA'
-            ? 'Pull to refresh on Dashboard first'
-            : `Matrix data for ${selectedTicker} is not yet available`}
-        </Text>
+        {loading ? (
+          <>
+            <ActivityIndicator size="large" color={colors.accent} />
+            <Text style={[styles.emptySubtitle, { color: colors.textMuted, marginTop: 12 }]}>
+              Loading options data...
+            </Text>
+          </>
+        ) : (
+          <>
+            <Text style={[styles.emptyIcon, { color: colors.textMuted }]}>{'\u26A0'}</Text>
+            <Text style={[styles.emptyTitle, { color: colors.textHeading }]}>
+              No Matrix Data
+            </Text>
+            <Text style={[styles.emptySubtitle, { color: colors.textMuted }]}>
+              {selectedTicker === 'TSLA'
+                ? 'Data loading failed. Check your connection.'
+                : `Matrix data for ${selectedTicker} is not yet available`}
+            </Text>
+            <TouchableOpacity
+              style={[styles.retryBtn, { backgroundColor: colors.accent }]}
+              onPress={() => {
+                setLoading(true);
+                fetchDashboardData(GITHUB_OWNER, GITHUB_REPO)
+                  .then((data) => {
+                    setDashboardData(data);
+                    const m = (data as Record<string, unknown>)?.tsla_matrix;
+                    if (m) setTslaMatrix(m as any);
+                  })
+                  .catch(() => {})
+                  .finally(() => setLoading(false));
+              }}
+            >
+              <Text style={{ color: '#fff', fontWeight: '600' }}>Retry</Text>
+            </TouchableOpacity>
+          </>
+        )}
       </View>
     );
   }
@@ -480,6 +529,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
     lineHeight: 20,
+  },
+  retryBtn: {
+    marginTop: 16,
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+    borderRadius: 8,
   },
   noStrikes: {
     flex: 1,
