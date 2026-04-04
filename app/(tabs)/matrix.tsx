@@ -82,14 +82,18 @@ export default function MatrixScreen() {
 
   // ── Find best strike (highest annualized among good-spread options) ──
   const bestStrike = useMemo(() => {
-    if (strikes.length === 0) return null;
-    const candidates = strikes.filter(
-      (s) => s.spreadQuality === 'Excellent' || s.spreadQuality === 'Good'
-    );
-    const pool = candidates.length > 0 ? candidates : strikes;
-    return pool.reduce((best, cur) =>
-      calculateStarRating(cur) > calculateStarRating(best) ? cur : best
-    );
+    if (!strikes || strikes.length === 0) return null;
+    try {
+      const candidates = strikes.filter(
+        (s) => s.spreadQuality === 'Excellent' || s.spreadQuality === 'Good'
+      );
+      const pool = candidates.length > 0 ? candidates : strikes;
+      return pool.reduce((best, cur) =>
+        calculateStarRating(cur) > calculateStarRating(best) ? cur : best
+      );
+    } catch {
+      return null;
+    }
   }, [strikes]);
 
   // ── Compare mode ──

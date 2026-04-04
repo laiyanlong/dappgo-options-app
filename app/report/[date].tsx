@@ -380,9 +380,10 @@ export default function ReportDetailScreen() {
   }, [date]);
 
   const handleAddToBacktest = useCallback(() => {
-    // Add each ticker's best trade to backtest portfolio
-    if (parsedReport?.tickers) {
-      parsedReport.tickers.forEach((t: any) => {
+    // Use report data from app-store
+    const report = useAppStore.getState().reports[date];
+    if (report?.tickers) {
+      report.tickers.forEach((t) => {
         addToPortfolio({
           symbol: t.symbol || 'TSLA',
           strategy: 'sell_put',
@@ -391,7 +392,6 @@ export default function ReportDetailScreen() {
         });
       });
     } else {
-      // Fallback: add default TSLA
       addToPortfolio({
         symbol: 'TSLA',
         strategy: 'sell_put',
@@ -399,9 +399,8 @@ export default function ReportDetailScreen() {
         period: '6mo',
       });
     }
-    // Navigate to Backtest tab
     router.navigate('/(tabs)/backtest');
-  }, [parsedReport, addToPortfolio, router]);
+  }, [date, addToPortfolio, router]);
 
   // ── Render ──
 
