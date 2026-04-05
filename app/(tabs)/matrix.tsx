@@ -281,14 +281,13 @@ export default function MatrixScreen() {
       >
         {TICKERS.map((ticker) => {
           const active = ticker === selectedTicker;
-          const price = ticker === 'TSLA' && matrix ? matrix.price : quotes[ticker]?.price;
           return (
             <TouchableOpacity
               key={ticker}
               style={[
                 styles.tickerChip,
                 {
-                  backgroundColor: active ? colors.accent : colors.card,
+                  backgroundColor: active ? colors.accent : 'transparent',
                   borderColor: active ? colors.accent : colors.border,
                 },
               ]}
@@ -300,48 +299,48 @@ export default function MatrixScreen() {
               activeOpacity={0.7}
             >
               <Text
+                numberOfLines={1}
                 style={[
                   styles.tickerSymbol,
-                  { color: active ? '#fff' : colors.textHeading },
+                  { color: active ? '#fff' : colors.textMuted },
                 ]}
               >
                 {ticker}
               </Text>
-              {price != null && active && (
-                <Text
-                  style={[
-                    styles.tickerPrice,
-                    { color: 'rgba(255,255,255,0.7)' },
-                  ]}
-                >
-                  {formatDollar(price)}
-                </Text>
-              )}
             </TouchableOpacity>
           );
         })}
       </ScrollView>
 
-      {/* ── Price change since load indicator ── */}
+      {/* ── Selected ticker price row ── */}
       {(() => {
         const matrixPrice = matrix?.price;
         const quotePrice = quotes[selectedTicker]?.price;
-        if (matrixPrice && quotePrice && Math.abs(matrixPrice - quotePrice) >= 0.01) {
-          const diff = quotePrice - matrixPrice;
-          const sign = diff >= 0 ? '+' : '';
-          const diffColor = diff >= 0 ? colors.positive : colors.negative;
-          return (
-            <View style={styles.priceChangeRow}>
-              <Text style={[styles.priceChangeText, { color: colors.textMuted }]}>
-                {selectedTicker} {formatDollar(matrixPrice)} {'\u2192'} {formatDollar(quotePrice)}{' '}
-                <Text style={{ color: diffColor }}>
-                  ({sign}{formatDollar(diff)})
-                </Text>
+        // Prefer live quote; fall back to matrix price
+        const displayPrice = quotePrice ?? matrixPrice;
+        if (!displayPrice) return null;
+
+        const hasDiff = matrixPrice && quotePrice && Math.abs(matrixPrice - quotePrice) >= 0.01;
+        const diff = hasDiff ? (quotePrice! - matrixPrice!) : 0;
+        const pctChange = hasDiff && matrixPrice ? (diff / matrixPrice) * 100 : 0;
+        const sign = diff >= 0 ? '+' : '';
+        const diffColor = diff >= 0 ? colors.positive : colors.negative;
+
+        return (
+          <View style={styles.priceRow}>
+            <Text style={[styles.priceRowTicker, { color: colors.textHeading }]}>
+              {selectedTicker}
+            </Text>
+            <Text style={[styles.priceRowPrice, { color: colors.textHeading }]}>
+              {formatDollar(displayPrice)}
+            </Text>
+            {hasDiff && (
+              <Text style={[styles.priceRowChange, { color: diffColor }]}>
+                {sign}{formatDollar(diff)} ({sign}{pctChange.toFixed(1)}%)
               </Text>
-            </View>
-          );
-        }
-        return null;
+            )}
+          </View>
+        );
       })()}
 
       {/* ── Expiry tabs ── */}
@@ -360,10 +359,7 @@ export default function MatrixScreen() {
             return (
               <TouchableOpacity
                 key={exp.date}
-                style={[
-                  styles.expiryTab,
-                  active && { borderBottomColor: colors.gold, borderBottomWidth: 2 },
-                ]}
+                style={styles.expiryTab}
                 onPress={() => {
                   setSelectedExpiryIdx(idx);
                   setCheckedStrikes(new Set());
@@ -371,6 +367,7 @@ export default function MatrixScreen() {
                 activeOpacity={0.7}
               >
                 <Text
+                  numberOfLines={1}
                   style={[
                     styles.expiryDate,
                     { color: active ? colors.gold : colors.textMuted },
@@ -379,6 +376,7 @@ export default function MatrixScreen() {
                   {formatDate(exp.date)}
                 </Text>
                 <Text
+                  numberOfLines={1}
                   style={[
                     styles.expiryDte,
                     { color: active ? colors.gold : colors.tabInactive },
@@ -386,6 +384,13 @@ export default function MatrixScreen() {
                 >
                   ({dte}d)
                 </Text>
+                {/* Underline indicator — sits flush at the bottom of the tab */}
+                <View
+                  style={[
+                    styles.expiryUnderline,
+                    { backgroundColor: active ? colors.gold : 'transparent' },
+                  ]}
+                />
               </TouchableOpacity>
             );
           })}
@@ -548,54 +553,62 @@ const styles = StyleSheet.create<Record<string, any>>({
   },
   // Ticker chips
   tickerRow: {
-    marginBottom: 18,
+    marginBottom: 4,
   },
   tickerContent: {
     paddingHorizontal: 16,
     gap: 10,
-    paddingVertical: 6,
+    paddingVertical: 8,
   },
   tickerChip: {
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingHorizontal: 0,
     borderRadius: 24,
-    borderWidth: 1,
-    gap: 6,
-    minHeight: 44,
-    minWidth: 90,
+    borderWidth: 1.5,
+    height: 44,
+    width: 80,
   },
   tickerSymbol: {
     fontSize: 15,
     fontWeight: '700',
+    letterSpacing: 0.3,
   },
-  tickerPrice: {
+  // Selected ticker price row
+  priceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    marginBottom: 12,
+    gap: 6,
+  },
+  priceRowTicker: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  priceRowPrice: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  priceRowChange: {
     fontSize: 12,
     fontWeight: '500',
   },
-  // Price change since load
-  priceChangeRow: {
-    paddingHorizontal: 16,
-    marginBottom: 4,
-  },
-  priceChangeText: {
-    fontSize: 12,
-  },
   // Expiry tabs
   expiryScroll: {
-    marginBottom: 14,
+    marginBottom: 8,
   },
   expiryContent: {
     paddingHorizontal: 16,
-    gap: 8,
-    paddingVertical: 6,
+    gap: 4,
+    paddingVertical: 4,
   },
   expiryTab: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 14,
+    paddingTop: 10,
+    paddingBottom: 6,
     alignItems: 'center',
+    minHeight: 52,
   },
   expiryDate: {
     fontSize: 14,
@@ -603,7 +616,13 @@ const styles = StyleSheet.create<Record<string, any>>({
   },
   expiryDte: {
     fontSize: 11,
-    marginTop: 1,
+    marginTop: 2,
+    marginBottom: 4,
+  },
+  expiryUnderline: {
+    height: 2,
+    width: '100%',
+    borderRadius: 1,
   },
   // Type toggle
   typeToggle: {
