@@ -307,36 +307,15 @@ export default function MatrixScreen() {
         </View>
       </View>
 
-      {/* ── Selected ticker price row ── */}
-      {(() => {
-        const matrixPrice = matrix?.price;
-        const quotePrice = quotes[selectedTicker]?.price;
-        // Prefer live quote; fall back to matrix price
-        const displayPrice = quotePrice ?? matrixPrice;
-        if (!displayPrice) return null;
-
-        const hasDiff = matrixPrice && quotePrice && Math.abs(matrixPrice - quotePrice) >= 0.01;
-        const diff = hasDiff ? (quotePrice! - matrixPrice!) : 0;
-        const pctChange = hasDiff && matrixPrice ? (diff / matrixPrice) * 100 : 0;
-        const sign = diff >= 0 ? '+' : '';
-        const diffColor = diff >= 0 ? colors.positive : colors.negative;
-
-        return (
-          <View style={styles.priceRow}>
-            <Text style={[styles.priceRowTicker, { color: colors.textHeading }]}>
-              {selectedTicker}
-            </Text>
-            <Text style={[styles.priceRowPrice, { color: colors.textHeading }]}>
-              {formatDollar(displayPrice)}
-            </Text>
-            {hasDiff && (
-              <Text style={[styles.priceRowChange, { color: diffColor }]}>
-                {sign}{formatDollar(diff)} ({sign}{pctChange.toFixed(1)}%)
-              </Text>
-            )}
-          </View>
-        );
-      })()}
+      {/* ── Selected ticker price row (fixed height to prevent layout shift) ── */}
+      <View style={styles.priceRow}>
+        <Text style={[styles.priceRowTicker, { color: colors.textHeading }]}>
+          {selectedTicker}
+        </Text>
+        <Text style={[styles.priceRowPrice, { color: colors.textHeading }]}>
+          {formatDollar(matrix?.price ?? quotes[selectedTicker]?.price ?? 0)}
+        </Text>
+      </View>
 
       {/* ── Expiry tabs ── */}
       {expiries.length > 0 && (
@@ -574,7 +553,8 @@ const styles = StyleSheet.create<Record<string, any>>({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    marginBottom: 12,
+    height: 28,
+    marginBottom: 8,
     gap: 6,
   },
   priceRowTicker: {
