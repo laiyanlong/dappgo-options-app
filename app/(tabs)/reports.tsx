@@ -442,8 +442,8 @@ const styles = StyleSheet.create<Record<string, any>>({
   subtitle: { fontSize: 13, paddingHorizontal: 16, marginBottom: 12 },
 
   // Filter bar
-  filterRow: { maxHeight: 48, marginBottom: 8 },
-  filterContent: { paddingHorizontal: 16, gap: 8, alignItems: 'center' },
+  filterRow: { marginBottom: 10 },
+  filterContent: { paddingHorizontal: 16, gap: 8, alignItems: 'center', paddingVertical: 4 },
   filterSpacer: { width: 8 },
   chip: {
     paddingHorizontal: 14,
