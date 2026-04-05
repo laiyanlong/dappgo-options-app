@@ -553,15 +553,17 @@ const styles = StyleSheet.create<Record<string, any>>({
   tickerContent: {
     paddingHorizontal: 16,
     gap: 10,
+    paddingVertical: 4,
   },
   tickerChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
     borderRadius: 24,
     borderWidth: 1,
     gap: 8,
+    minHeight: 44,
   },
   tickerSymbol: {
     fontSize: 15,

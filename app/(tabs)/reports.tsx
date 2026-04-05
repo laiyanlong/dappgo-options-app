@@ -458,12 +458,14 @@ const styles = StyleSheet.create<Record<string, any>>({
   filterContent: { paddingHorizontal: 16, gap: 8, alignItems: 'center', paddingVertical: 4 },
   filterSpacer: { width: 8 },
   chip: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
     borderRadius: 20,
     borderWidth: 1,
+    minHeight: 40,
+    justifyContent: 'center',
   },
-  chipText: { fontSize: 14, fontWeight: '600' },
+  chipText: { fontSize: 14, fontWeight: '600', lineHeight: 16 },
 
   // Search bar
   searchContainer: {
