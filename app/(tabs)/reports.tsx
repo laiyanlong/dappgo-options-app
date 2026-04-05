@@ -25,6 +25,7 @@ import { GITHUB_OWNER, GITHUB_REPO, DEFAULT_TICKERS } from '../../src/utils/cons
 import { Card } from '../../src/components/ui/Card';
 import { Badge } from '../../src/components/ui/Badge';
 import { EmptyState } from '../../src/components/ui/EmptyState';
+import { SectionHeader } from '../../src/components/ui/SectionHeader';
 import type { DailyReport, TickerReport } from '../../src/utils/types';
 
 // ── Filter chips ──
@@ -62,9 +63,9 @@ function bestTradeLabel(report: DailyReport): string | null {
   return null;
 }
 
-// ── Chip component ──
+// ── Chip component (memoized) ──
 
-function Chip({
+const Chip = React.memo(function Chip({
   label,
   active,
   onPress,
@@ -96,7 +97,7 @@ function Chip({
       </Text>
     </TouchableOpacity>
   );
-}
+});
 
 // ── Main screen ──
 
@@ -228,6 +229,9 @@ export default function ReportsScreen() {
 
     return dates;
   }, [reportDates, reports, tickerFilter, dateRange, debouncedQuery]);
+
+  // ── Stable key extractor ──
+  const reportKeyExtractor = useCallback((d: string) => d, []);
 
   // ── Render helpers ──
 
@@ -363,6 +367,8 @@ export default function ReportsScreen() {
           showsHorizontalScrollIndicator={false}
           style={styles.filterRow}
           contentContainerStyle={styles.filterContent}
+          scrollEventThrottle={16}
+          bounces
         >
           {TICKER_FILTERS.map((t) => (
             <Chip
@@ -412,11 +418,17 @@ export default function ReportsScreen() {
         {/* Report list */}
         <FlatList
           data={filteredDates}
-          keyExtractor={(d) => d}
+          keyExtractor={reportKeyExtractor}
           renderItem={renderCard}
           contentContainerStyle={styles.list}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
+          scrollEventThrottle={16}
+          bounces
+          initialNumToRender={10}
+          maxToRenderPerBatch={5}
+          windowSize={5}
+          removeClippedSubviews={Platform.OS === 'android'}
           refreshControl={
             <RefreshControl
               refreshing={isLoading}
@@ -438,7 +450,7 @@ export default function ReportsScreen() {
 const styles = StyleSheet.create<Record<string, any>>({
   container: { flex: 1, paddingTop: 16 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 },
-  title: { fontSize: 28, fontWeight: '700', marginTop: 8, paddingHorizontal: 16, marginBottom: 2 },
+  title: { fontSize: 28, fontWeight: '700', letterSpacing: -1, marginTop: 8, paddingHorizontal: 16, marginBottom: 2 },
   subtitle: { fontSize: 13, paddingHorizontal: 16, marginBottom: 12 },
 
   // Filter bar

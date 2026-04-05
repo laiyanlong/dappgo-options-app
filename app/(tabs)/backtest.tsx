@@ -84,23 +84,22 @@ export default function BacktestScreen() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const tickers = useSettingsStore((s) => s.tickers);
-  const {
-    mode,
-    setMode,
-    simpleInput,
-    setSimpleInput,
-    portfolio,
-    addToPortfolio,
-    removeFromPortfolio,
-    results,
-    setResults,
-    saveResult,
-    removeSavedResult,
-    savedResults,
-    clearResults,
-    pendingAutoRun,
-    setPendingAutoRun,
-  } = useBacktestStore();
+  // Split store selectors to reduce re-renders
+  const mode = useBacktestStore((s) => s.mode);
+  const setMode = useBacktestStore((s) => s.setMode);
+  const simpleInput = useBacktestStore((s) => s.simpleInput);
+  const setSimpleInput = useBacktestStore((s) => s.setSimpleInput);
+  const portfolio = useBacktestStore((s) => s.portfolio);
+  const addToPortfolio = useBacktestStore((s) => s.addToPortfolio);
+  const removeFromPortfolio = useBacktestStore((s) => s.removeFromPortfolio);
+  const results = useBacktestStore((s) => s.results);
+  const setResults = useBacktestStore((s) => s.setResults);
+  const saveResult = useBacktestStore((s) => s.saveResult);
+  const removeSavedResult = useBacktestStore((s) => s.removeSavedResult);
+  const savedResults = useBacktestStore((s) => s.savedResults);
+  const clearResults = useBacktestStore((s) => s.clearResults);
+  const pendingAutoRun = useBacktestStore((s) => s.pendingAutoRun);
+  const setPendingAutoRun = useBacktestStore((s) => s.setPendingAutoRun);
 
   const [computing, setComputing] = useState(false);
   const [addModalVisible, setAddModalVisible] = useState(false);
@@ -240,6 +239,9 @@ export default function BacktestScreen() {
     <ScrollView
       style={[styles.container, { backgroundColor: colors.background }]}
       contentContainerStyle={[styles.contentContainer, { paddingTop: insets.top + 8 }]}
+      showsVerticalScrollIndicator={false}
+      scrollEventThrottle={16}
+      bounces
     >
       {/* ── Header ── */}
       <View style={styles.header}>
@@ -735,7 +737,7 @@ export default function BacktestScreen() {
               <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>
                 SIDE-BY-SIDE COMPARISON
               </Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} scrollEventThrottle={16} bounces>
                 <View>
                   {/* Header row */}
                   <View style={[styles.tableRow, { borderBottomColor: colors.border }]}>
@@ -1084,8 +1086,8 @@ const styles = StyleSheet.create<Record<string, any>>({
     alignItems: 'flex-start',
     marginBottom: 16,
   },
-  title: { fontSize: 28, fontWeight: '700', marginTop: 8, marginBottom: 2 },
-  subtitle: { fontSize: 14 },
+  title: { fontSize: 28, fontWeight: '700', letterSpacing: -1, marginTop: 8, marginBottom: 2 },
+  subtitle: { fontSize: 13 },
 
   // Chips
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 },

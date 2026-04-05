@@ -57,8 +57,9 @@ function calculateStarRating(entry: OptionEntry): number {
 /**
  * Rich strike card showing all key metrics for an option contract.
  * Used in the Matrix screen's FlatList.
+ * Wrapped with React.memo to prevent unnecessary re-renders in list.
  */
-export function StrikeCard({
+export const StrikeCard = React.memo(function StrikeCard({
   entry,
   currentPrice,
   isBest,
@@ -301,7 +302,7 @@ export function StrikeCard({
       </View>
     </Card>
   );
-}
+});
 
 /** Export for use in Matrix screen comparison logic */
 export { calculateStarRating };

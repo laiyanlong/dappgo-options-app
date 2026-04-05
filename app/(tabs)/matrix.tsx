@@ -9,6 +9,7 @@ import {
   StyleSheet,
   ActivityIndicator,
   RefreshControl,
+  Platform,
   useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -19,6 +20,7 @@ import { GITHUB_OWNER, GITHUB_REPO } from '../../src/utils/constants';
 import { mapTslaMatrix } from '../../src/data/mappers';
 import { useBacktestStore } from '../../src/store/backtest-store';
 import { SegmentedControl } from '../../src/components/ui/SegmentedControl';
+import { SectionHeader } from '../../src/components/ui/SectionHeader';
 import { StrikeCard, calculateStarRating } from '../../src/components/trade/StrikeCard';
 import { formatDollar, formatDate, daysUntil } from '../../src/utils/format';
 import type { OptionEntry, StrikeComparison } from '../../src/utils/types';
@@ -40,7 +42,7 @@ export default function MatrixScreen() {
   const { width } = useWindowDimensions();
   const isWide = width >= IPAD_WIDTH;
 
-  // ── Store data ──
+  // ── Store data (split selectors to reduce re-renders) ──
   const matrices = useAppStore((s) => s.matrices);
   const setMatrix = useAppStore((s) => s.setMatrix);
   const setDashboardData = useAppStore((s) => s.setDashboardData);
@@ -274,6 +276,8 @@ export default function MatrixScreen() {
         showsHorizontalScrollIndicator={false}
         style={styles.tickerRow}
         contentContainerStyle={styles.tickerContent}
+        scrollEventThrottle={16}
+        bounces
       >
         {TICKERS.map((ticker) => {
           const active = ticker === selectedTicker;
@@ -347,6 +351,8 @@ export default function MatrixScreen() {
           showsHorizontalScrollIndicator={false}
           style={styles.expiryScroll}
           contentContainerStyle={styles.expiryContent}
+          scrollEventThrottle={16}
+          bounces
         >
           {expiries.map((exp, idx) => {
             const active = idx === selectedExpiryIdx;
@@ -418,8 +424,14 @@ export default function MatrixScreen() {
           keyExtractor={keyExtractor}
           contentContainerStyle={styles.listContent}
           numColumns={isWide ? 2 : 1}
-          key={isWide ? 'wide' : 'narrow'} // Force re-mount when numColumns changes
+          key={isWide ? 'wide' : 'narrow'}
           showsVerticalScrollIndicator={false}
+          scrollEventThrottle={16}
+          bounces
+          initialNumToRender={10}
+          maxToRenderPerBatch={5}
+          windowSize={5}
+          removeClippedSubviews={Platform.OS === 'android'}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -438,7 +450,7 @@ export default function MatrixScreen() {
           </Text>
 
           {/* Side-by-side summary */}
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} scrollEventThrottle={16} bounces>
             <View style={styles.compareRow}>
               {comparedEntries.map((entry) => (
                 <View key={entry.strike} style={styles.compareCol}>
@@ -525,8 +537,9 @@ const styles = StyleSheet.create<Record<string, any>>({
     marginBottom: 12,
   },
   title: {
-    fontSize: 26,
+    fontSize: 28,
     fontWeight: '700',
+    letterSpacing: -1,
     marginBottom: 4,
   },
   subtitle: {

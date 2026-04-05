@@ -1,16 +1,12 @@
-import React, { useEffect, useCallback, useState } from 'react';
+import React, { useEffect, useCallback, useState, useMemo } from 'react';
 import {
-  ScrollView,
   View,
   Text,
   StyleSheet,
-  RefreshControl,
   FlatList,
-  ActivityIndicator,
   TouchableOpacity,
   Platform,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useBacktestStore } from '../../src/store/backtest-store';
 import { useTheme } from '../../src/theme';
@@ -25,10 +21,13 @@ import { probabilityOfProfit } from '../../src/engine/pop';
 import { SparkLine } from '../../src/components/charts/SparkLine';
 import { TickerTape } from '../../src/components/charts/TickerTape';
 import { Card } from '../../src/components/ui/Card';
+import { SectionHeader } from '../../src/components/ui/SectionHeader';
+import { TabPage } from '../../src/components/ui/TabPage';
 import { UpgradePrompt } from '../../src/components/ui/UpgradePrompt';
 import { PoweredByDappGo } from '../../src/components/ui/PoweredByDappGo';
 import { AppVersion } from '../../src/components/ui/AppVersion';
 import { LastUpdated } from '../../src/components/ui/LastUpdated';
+import { DashboardSkeleton } from '../../src/components/ui/Skeleton';
 import { FadeIn } from '../../src/components/ui/FadeIn';
 import { WelcomeCard } from '../../src/components/onboarding/WelcomeCard';
 import { lightHaptic } from '../../src/utils/haptics';
@@ -51,61 +50,140 @@ interface TopPick {
   strategy: string;
   strike: number;
   premium: number;
-  pop: number | null; // null when live price unavailable
+  pop: number | null;
   annualized: number;
   expiry?: string;
   dte?: number;
 }
 
-interface DashboardVerdict {
-  regime?: { name: string; vix?: number; hv20?: number; positionSize?: number; strategies?: string[] };
-  tickers?: TickerVerdict[];
-  overallConclusion?: string;
-}
+// ── Memoized Price Card ──
 
-// ── Regime color mapping ──
+const PriceCard = React.memo(function PriceCard({
+  item,
+  colors,
+}: {
+  item: LivePrice;
+  colors: ReturnType<typeof useTheme>['colors'];
+}) {
+  const isPositive = item.change_pct >= 0;
+  const changeColor = isPositive ? colors.positive : colors.negative;
+  const arrow = isPositive ? '\u25B2' : '\u25BC';
 
-function regimeEmoji(name: string): string {
-  const n = name.toLowerCase();
-  if (n.includes('low')) return '\u{1F7E2}';   // green circle
-  if (n.includes('moderate') || n.includes('normal')) return '\u{1F7E1}'; // yellow
-  if (n.includes('elevated')) return '\u{1F7E0}'; // orange
-  return '\u{1F534}'; // red
-}
+  return (
+    <View
+      style={[
+        styles.priceCard,
+        {
+          backgroundColor: colors.card,
+          borderColor: colors.border,
+          ...Platform.select({
+            ios: {
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.15,
+              shadowRadius: 6,
+            },
+            android: { elevation: 3 },
+          }),
+        },
+      ]}
+    >
+      <View style={styles.priceCardHeader}>
+        <Text style={[styles.priceSymbol, { color: colors.gold }]}>
+          {item.symbol}
+        </Text>
+        {item.market_state && (
+          <Text style={[styles.marketState, { color: colors.textMuted }]}>
+            {item.market_state}
+          </Text>
+        )}
+      </View>
 
-function ivSignalColor(signal: string, positive: string, negative: string, muted: string): string {
-  const s = signal.toLowerCase();
-  if (s.includes('high') || s.includes('rich')) return negative;
-  if (s.includes('low') || s.includes('cheap')) return positive;
-  return muted;
-}
+      <Text style={[styles.priceValue, { color: colors.textHeading }]}>
+        {formatDollar(item.price)}
+      </Text>
+
+      <Text style={[styles.priceChange, { color: changeColor }]}>
+        {arrow} {formatPct(item.change_pct)}
+      </Text>
+
+      {item.intraday_prices && item.intraday_prices.length >= 2 && (
+        <View style={styles.sparkContainer}>
+          <SparkLine
+            prices={item.intraday_prices}
+            color={changeColor}
+            width={120}
+            height={36}
+          />
+        </View>
+      )}
+    </View>
+  );
+});
+
+// ── Memoized Watchlist Card ──
+
+const WatchlistCard = React.memo(function WatchlistCard({
+  item,
+  colors,
+  onPress,
+}: {
+  item: WatchlistItem;
+  colors: ReturnType<typeof useTheme>['colors'];
+  onPress: () => void;
+}) {
+  return (
+    <TouchableOpacity
+      style={[
+        styles.watchlistCard,
+        {
+          backgroundColor: colors.card,
+          borderColor: colors.border,
+        },
+      ]}
+      activeOpacity={0.7}
+      onPress={onPress}
+    >
+      <Text style={[styles.watchlistSymbol, { color: colors.gold }]}>
+        {item.symbol}
+      </Text>
+      <Text style={[styles.watchlistStrategy, { color: colors.accent }]}>
+        {formatStrategy(item.strategy)}
+      </Text>
+      <Text style={[styles.watchlistStrike, { color: colors.textHeading }]}>
+        {formatDollar(item.strike)}
+      </Text>
+      {item.expiry ? (
+        <Text style={[styles.watchlistExpiry, { color: colors.textMuted }]}>
+          Exp: {item.expiry}
+        </Text>
+      ) : null}
+    </TouchableOpacity>
+  );
+});
 
 // ── Main Screen ──
 
 export default function DashboardScreen() {
   const { colors } = useTheme();
-  const insets = useSafeAreaInsets();
   const router = useRouter();
   const backtestSetSimpleInput = useBacktestStore((s) => s.setSimpleInput);
   const backtestSetMode = useBacktestStore((s) => s.setMode);
   const backtestSetPendingAutoRun = useBacktestStore((s) => s.setPendingAutoRun);
 
-  // Watchlist
+  // Watchlist - split selectors to reduce re-renders
   const watchlistItems = useWatchlistStore((s) => s.items);
   const clearWatchlist = useWatchlistStore((s) => s.clearAll);
 
-  const {
-    dashboardData,
-    isLoadingDashboard,
-    setDashboardData,
-    setLoading,
-    setNetworkStatus,
-  } = useAppStore();
+  // Split store selectors for granular re-renders
+  const dashboardData = useAppStore((s) => s.dashboardData);
+  const isLoadingDashboard = useAppStore((s) => s.isLoadingDashboard);
+  const setDashboardData = useAppStore((s) => s.setDashboardData);
+  const setLoading = useAppStore((s) => s.setLoading);
+  const setNetworkStatus = useAppStore((s) => s.setNetworkStatus);
+  const setMatrix = useAppStore((s) => s.setMatrix);
 
   const [error, setError] = useState<string | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
-
-  const setMatrix = useAppStore((s) => s.setMatrix);
 
   const loadData = useCallback(async () => {
     try {
@@ -114,7 +192,7 @@ export default function DashboardScreen() {
       const data = await fetchDashboardData(GITHUB_OWNER, GITHUB_REPO);
       setDashboardData(data);
       setNetworkStatus('online');
-      // Store all options matrices (TSLA, AMZN, NVDA)
+      // Store all options matrices
       const allMatrices = (data as Record<string, unknown>)?.options_matrices as Record<string, unknown> | undefined;
       if (allMatrices) {
         for (const [sym, raw] of Object.entries(allMatrices)) {
@@ -144,75 +222,184 @@ export default function DashboardScreen() {
   }, [loadData]);
 
   const onRefresh = useCallback(async () => {
-    setRefreshing(true);
     await loadData();
-    setRefreshing(false);
   }, [loadData]);
 
-  // ── Parse dashboard data ──
+  // ── Parse dashboard data (memoized) ──
   const dd = dashboardData as Record<string, unknown> | null;
 
-  const livePrices: LivePrice[] = (dd?.live_prices as LivePrice[]) ?? [];
+  const livePrices: LivePrice[] = useMemo(
+    () => (dd?.live_prices as LivePrice[]) ?? [],
+    [dd],
+  );
 
-  // Build verdict from tsla_matrix or summary data (model_verdict not in data.json)
-  const verdict: DashboardVerdict | null = dd?.tsla_matrix
-    ? { regime: { name: 'Active', vix: undefined, hv20: undefined, positionSize: undefined, strategies: [] } }
-    : null;
+  // Top picks from strike_comparison - memoized
+  const topPicks: TopPick[] = useMemo(() => {
+    const rawStrikes = (dd?.strike_comparison as Record<string, unknown>[]) ?? [];
+    return rawStrikes.slice(0, 4).map((s: any) => {
+      const symbol: string = s.symbol ?? '';
+      const strike: number = s.strike ?? 0;
+      const dte: number = s.dte ?? 0;
+      const iv: number = s.iv ?? 30;
+      const strategy: string = s.strategy ?? 'sell_put';
+      const livePrice = livePrices.find((lp) => lp.symbol === symbol)?.price;
+      const optionType: 'put' | 'call' = strategy.includes('call') ? 'call' : 'put';
+      const pop = livePrice != null && strike > 0 && dte > 0
+        ? probabilityOfProfit(strike, livePrice, dte, iv, optionType)
+        : null;
+      return {
+        symbol,
+        strategy,
+        strike,
+        premium: s.premium ?? 0,
+        pop,
+        annualized: s.annualized ?? 0,
+        expiry: s.expiry ?? '',
+        dte,
+      };
+    });
+  }, [dd, livePrices]);
 
-  // Top picks from strike_comparison (map fields to match TopPick interface)
-  // POP is calculated locally since strike_comparison doesn't include it
-  const rawStrikes = (dd?.strike_comparison as Record<string, unknown>[]) ?? [];
-  const topPicks: TopPick[] = rawStrikes.slice(0, 4).map((s: any) => {
-    const symbol: string = s.symbol ?? '';
-    const strike: number = s.strike ?? 0;
-    const dte: number = s.dte ?? 0;
-    const iv: number = s.iv ?? 30;
-    const strategy: string = s.strategy ?? 'sell_put';
-    const livePrice = livePrices.find((lp) => lp.symbol === symbol)?.price;
-    const optionType: 'put' | 'call' = strategy.includes('call') ? 'call' : 'put';
-    const pop = livePrice != null && strike > 0 && dte > 0
-      ? probabilityOfProfit(strike, livePrice, dte, iv, optionType)
-      : null;
-    return {
-      symbol,
-      strategy,
-      strike,
-      premium: s.premium ?? 0,
-      pop,
-      annualized: s.annualized ?? 0,
-      expiry: s.expiry ?? '',
-      dte,
-    };
-  });
+  // ── Ticker tape data (memoized to avoid re-creating on every render) ──
+  const tickerTapeData = useMemo(
+    () => livePrices.map((lp) => ({
+      symbol: lp.symbol,
+      price: lp.price,
+      changePct: lp.change_pct,
+    })),
+    [livePrices],
+  );
 
-  // ── Loading state ──
+  // ── Stable keyExtractors and renderItem callbacks ──
+  const priceKeyExtractor = useCallback((item: LivePrice) => item.symbol, []);
 
+  const renderPriceCard = useCallback(
+    ({ item }: { item: LivePrice }) => <PriceCard item={item} colors={colors} />,
+    [colors],
+  );
+
+  const watchlistKeyExtractor = useCallback(
+    (item: WatchlistItem, idx: number) => `${item.symbol}-${item.strike}-${idx}`,
+    [],
+  );
+
+  const navigateToMatrix = useCallback(() => {
+    router.navigate('/(tabs)/matrix');
+  }, [router]);
+
+  const renderWatchlistCard = useCallback(
+    ({ item }: { item: WatchlistItem }) => (
+      <WatchlistCard item={item} colors={colors} onPress={navigateToMatrix} />
+    ),
+    [colors, navigateToMatrix],
+  );
+
+  const topPickKeyExtractor = useCallback(
+    (pick: TopPick, idx: number) => `${pick.symbol}-${pick.strike}-${idx}`,
+    [],
+  );
+
+  const renderTopPick = useCallback(
+    ({ item: pick, index: idx }: { item: TopPick; index: number }) => (
+      <View
+        style={[
+          styles.pickCard,
+          {
+            backgroundColor: colors.card,
+            borderColor: idx === 0 ? colors.gold : colors.border,
+            borderWidth: idx === 0 ? 2 : 1,
+          },
+        ]}
+      >
+        {idx === 0 && (
+          <View style={[styles.pickBestBadge, { backgroundColor: colors.gold }]}>
+            <Text style={styles.pickBestBadgeText}>#1 PICK</Text>
+          </View>
+        )}
+
+        <View style={styles.pickHeader}>
+          <Text style={[styles.pickSymbol, { color: colors.gold }]}>
+            {pick.symbol}
+          </Text>
+          <Text style={[styles.pickStrategy, { color: colors.accent }]}>
+            {formatStrategy(pick.strategy)}
+          </Text>
+        </View>
+
+        <View style={styles.pickGrid}>
+          <View style={styles.pickCell}>
+            <Text style={[styles.pickLabel, { color: colors.textMuted }]}>Strike</Text>
+            <Text style={[styles.pickNum, { color: colors.textHeading }]}>
+              {formatDollar(pick.strike)}
+            </Text>
+          </View>
+          <View style={styles.pickCell}>
+            <Text style={[styles.pickLabel, { color: colors.textMuted }]}>Premium</Text>
+            <Text style={[styles.pickNum, { color: colors.positive }]}>
+              {formatDollar(pick.premium)}
+            </Text>
+          </View>
+          <View style={styles.pickCell}>
+            <Text style={[styles.pickLabel, { color: colors.textMuted }]}>POP</Text>
+            <Text style={[styles.pickNum, { color: colors.textHeading }]}>
+              {pick.pop != null ? formatPct(pick.pop, 0) : 'N/A'}
+            </Text>
+          </View>
+          <View style={styles.pickCell}>
+            <Text style={[styles.pickLabel, { color: colors.textMuted }]}>Ann.</Text>
+            <Text style={[styles.pickNum, { color: colors.positive }]}>
+              {formatPct(pick.annualized, 1)}
+            </Text>
+          </View>
+        </View>
+
+        {pick.expiry && (
+          <Text style={[typography.caption, { color: colors.textMuted, marginTop: spacing.xs }]}>
+            Exp: {pick.expiry}{pick.dte != null ? ` (${pick.dte}d)` : ''}
+          </Text>
+        )}
+
+        <TouchableOpacity
+          style={[styles.backtestBtn, { borderColor: colors.accent }]}
+          activeOpacity={0.7}
+          onPress={() => {
+            const strategyKey = pick.strategy.toLowerCase().replace(/[\s-]+/g, '_');
+            const validStrategies = ['sell_put', 'sell_call', 'iron_condor', 'bull_put_spread', 'bear_call_spread'] as const;
+            const strategy = validStrategies.find((s) => strategyKey.includes(s)) ?? 'sell_put';
+
+            backtestSetMode('simple');
+            backtestSetSimpleInput({
+              symbol: pick.symbol,
+              strategy,
+              period: '6mo',
+            });
+            backtestSetPendingAutoRun(true);
+            lightHaptic();
+            router.navigate('/(tabs)/backtest');
+          }}
+        >
+          <Text style={[styles.backtestBtnText, { color: colors.accent }]}>
+            Backtest
+          </Text>
+        </TouchableOpacity>
+      </View>
+    ),
+    [colors, backtestSetMode, backtestSetSimpleInput, backtestSetPendingAutoRun, router],
+  );
+
+  // ── Loading state with skeleton ──
   if (isLoadingDashboard && !dashboardData) {
     return (
-      <View style={[styles.centered, { backgroundColor: colors.background }]}>
-        <ActivityIndicator size="large" color={colors.accent} />
-        <Text style={[styles.loadingText, { color: colors.textMuted }]}>
-          Loading market data...
-        </Text>
-      </View>
+      <TabPage title="Dashboard" subtitle="Loading market data...">
+        <DashboardSkeleton />
+      </TabPage>
     );
   }
 
-  // ── Error / empty state — show welcome card ──
-
+  // ── Error / empty state ──
   if ((error || !dashboardData) && !isLoadingDashboard) {
     return (
-      <ScrollView
-        style={[styles.container, { backgroundColor: colors.background }]}
-        contentContainerStyle={[styles.centered, { paddingTop: insets.top + 8 }]}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={colors.accent}
-          />
-        }
-      >
+      <TabPage title="Dashboard" onRefresh={loadData}>
         <View style={[styles.welcomeCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Text style={[styles.welcomeTitle, { color: colors.gold }]}>
             Welcome to DappGo Options
@@ -233,119 +420,45 @@ export default function DashboardScreen() {
             <Text style={styles.retryText}>Load Data</Text>
           </TouchableOpacity>
         </View>
-      </ScrollView>
+      </TabPage>
     );
   }
 
-  // ── Price Card ──
-
-  const renderPriceCard = ({ item }: { item: LivePrice }) => {
-    const isPositive = item.change_pct >= 0;
-    const changeColor = isPositive ? colors.positive : colors.negative;
-    const arrow = isPositive ? '\u25B2' : '\u25BC';
-
-    return (
-      <View
-        style={[
-          styles.priceCard,
-          {
-            backgroundColor: colors.card,
-            borderColor: colors.border,
-            ...Platform.select({
-              ios: {
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.15,
-                shadowRadius: 6,
-              },
-              android: { elevation: 3 },
-            }),
-          },
-        ]}
-      >
-        <View style={styles.priceCardHeader}>
-          <Text style={[styles.priceSymbol, { color: colors.gold }]}>
-            {item.symbol}
-          </Text>
-          {item.market_state && (
-            <Text style={[styles.marketState, { color: colors.textMuted }]}>
-              {item.market_state}
-            </Text>
-          )}
-        </View>
-
-        <Text style={[styles.priceValue, { color: colors.textHeading }]}>
-          {formatDollar(item.price)}
-        </Text>
-
-        <Text style={[styles.priceChange, { color: changeColor }]}>
-          {arrow} {formatPct(item.change_pct)}
-        </Text>
-
-        {item.intraday_prices && item.intraday_prices.length >= 2 && (
-          <View style={styles.sparkContainer}>
-            <SparkLine
-              prices={item.intraday_prices}
-              color={changeColor}
-              width={120}
-              height={36}
-            />
-          </View>
-        )}
-      </View>
-    );
-  };
-
   return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: colors.background }]}
-      contentContainerStyle={[styles.contentContainer, { paddingTop: insets.top + 8 }]}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={onRefresh}
-          tintColor={colors.accent}
-        />
-      }
-      showsVerticalScrollIndicator={false}
+    <TabPage
+      title="Dashboard"
+      subtitle="Live market data & model verdict"
+      onRefresh={onRefresh}
     >
-      {/* ── Ticker Tape (Bloomberg-style scrolling bar) ── */}
-      {livePrices.length > 0 && (
-        <TickerTape
-          prices={livePrices.map((lp) => ({
-            symbol: lp.symbol,
-            price: lp.price,
-            changePct: lp.change_pct,
-          }))}
-          backgroundColor={colors.backgroundAlt}
-        />
-      )}
-
-      {/* ── Header ── */}
-      <Text style={[typography.h1, { color: colors.textHeading, marginBottom: spacing.xs }]}>
-        Dashboard
-      </Text>
-      <Text style={[typography.bodySmall, { color: colors.textMuted, marginBottom: spacing.xs }]}>
-        Live market data & model verdict
-      </Text>
+      {/* ── Last Updated ── */}
       <View style={{ marginBottom: spacing.lg }}>
         <LastUpdated />
       </View>
+
+      {/* ── Ticker Tape ── */}
+      {livePrices.length > 0 && (
+        <TickerTape
+          prices={tickerTapeData}
+          backgroundColor={colors.backgroundAlt}
+        />
+      )}
 
       {/* ── Live Price Cards ── */}
       {livePrices.length > 0 && (
         <FadeIn>
           <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: colors.textHeading }]}>
-              Live Prices
-            </Text>
+            <SectionHeader title="Live Prices" />
             <FlatList
               data={livePrices}
               renderItem={renderPriceCard}
-              keyExtractor={(item) => item.symbol}
+              keyExtractor={priceKeyExtractor}
               horizontal
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.priceListContent}
+              scrollEventThrottle={16}
+              bounces
+              initialNumToRender={5}
+              maxToRenderPerBatch={5}
             />
           </View>
         </FadeIn>
@@ -354,11 +467,8 @@ export default function DashboardScreen() {
       {/* ── Market Summary ── */}
       {dd && (
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.textHeading }]}>
-            Market Summary
-          </Text>
+          <SectionHeader title="Market Summary" />
           <Card>
-            {/* Backtest stats from summary */}
             {dd.summary != null ? (() => {
               const s = dd.summary as Record<string, number>;
               return (
@@ -417,58 +527,29 @@ export default function DashboardScreen() {
       {/* ── Watchlist ── */}
       {watchlistItems.length > 0 && (
         <View style={styles.section}>
-          <View style={styles.watchlistHeader}>
-            <Text style={[styles.sectionTitle, { color: colors.textHeading, marginBottom: 0 }]}>
-              {'\uD83D\uDCCC'} Watchlist
-            </Text>
-            <TouchableOpacity onPress={clearWatchlist} activeOpacity={0.7}>
-              <Text style={[styles.clearAllBtn, { color: colors.negative }]}>Clear All</Text>
-            </TouchableOpacity>
-          </View>
+          <SectionHeader
+            title={'\uD83D\uDCCC Watchlist'}
+            action={{ label: 'Clear All', onPress: clearWatchlist }}
+          />
           <FlatList
             data={watchlistItems}
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.watchlistList}
-            keyExtractor={(item, idx) => `${item.symbol}-${item.strike}-${idx}`}
-            renderItem={({ item }: { item: WatchlistItem }) => (
-              <TouchableOpacity
-                style={[
-                  styles.watchlistCard,
-                  {
-                    backgroundColor: colors.card,
-                    borderColor: colors.border,
-                  },
-                ]}
-                activeOpacity={0.7}
-                onPress={() => router.navigate('/(tabs)/matrix')}
-              >
-                <Text style={[styles.watchlistSymbol, { color: colors.gold }]}>
-                  {item.symbol}
-                </Text>
-                <Text style={[styles.watchlistStrategy, { color: colors.accent }]}>
-                  {formatStrategy(item.strategy)}
-                </Text>
-                <Text style={[styles.watchlistStrike, { color: colors.textHeading }]}>
-                  {formatDollar(item.strike)}
-                </Text>
-                {item.expiry ? (
-                  <Text style={[styles.watchlistExpiry, { color: colors.textMuted }]}>
-                    Exp: {item.expiry}
-                  </Text>
-                ) : null}
-              </TouchableOpacity>
-            )}
+            keyExtractor={watchlistKeyExtractor}
+            renderItem={renderWatchlistCard}
+            scrollEventThrottle={16}
+            bounces
+            initialNumToRender={5}
+            maxToRenderPerBatch={5}
           />
         </View>
       )}
 
-      {/* ── Today's Top Picks (Horizontal Carousel) ── */}
+      {/* ── Today's Top Picks ── */}
       {topPicks.length > 0 && (
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.textHeading }]}>
-            Today's Top Picks
-          </Text>
+          <SectionHeader title="Today's Top Picks" />
           <FlatList
             data={topPicks}
             horizontal
@@ -476,91 +557,12 @@ export default function DashboardScreen() {
             snapToInterval={288}
             decelerationRate="fast"
             contentContainerStyle={styles.pickCarouselContent}
-            keyExtractor={(pick, idx) => `${pick.symbol}-${pick.strike}-${idx}`}
-            renderItem={({ item: pick, index: idx }) => (
-              <View
-                style={[
-                  styles.pickCard,
-                  {
-                    backgroundColor: colors.card,
-                    borderColor: idx === 0 ? colors.gold : colors.border,
-                    borderWidth: idx === 0 ? 2 : 1,
-                  },
-                ]}
-              >
-                {idx === 0 && (
-                  <View style={[styles.pickBestBadge, { backgroundColor: colors.gold }]}>
-                    <Text style={styles.pickBestBadgeText}>#1 PICK</Text>
-                  </View>
-                )}
-
-                <View style={styles.pickHeader}>
-                  <Text style={[styles.pickSymbol, { color: colors.gold }]}>
-                    {pick.symbol}
-                  </Text>
-                  <Text style={[styles.pickStrategy, { color: colors.accent }]}>
-                    {formatStrategy(pick.strategy)}
-                  </Text>
-                </View>
-
-                <View style={styles.pickGrid}>
-                  <View style={styles.pickCell}>
-                    <Text style={[styles.pickLabel, { color: colors.textMuted }]}>Strike</Text>
-                    <Text style={[styles.pickNum, { color: colors.textHeading }]}>
-                      {formatDollar(pick.strike)}
-                    </Text>
-                  </View>
-                  <View style={styles.pickCell}>
-                    <Text style={[styles.pickLabel, { color: colors.textMuted }]}>Premium</Text>
-                    <Text style={[styles.pickNum, { color: colors.positive }]}>
-                      {formatDollar(pick.premium)}
-                    </Text>
-                  </View>
-                  <View style={styles.pickCell}>
-                    <Text style={[styles.pickLabel, { color: colors.textMuted }]}>POP</Text>
-                    <Text style={[styles.pickNum, { color: colors.textHeading }]}>
-                      {pick.pop != null ? formatPct(pick.pop, 0) : 'N/A'}
-                    </Text>
-                  </View>
-                  <View style={styles.pickCell}>
-                    <Text style={[styles.pickLabel, { color: colors.textMuted }]}>Ann.</Text>
-                    <Text style={[styles.pickNum, { color: colors.positive }]}>
-                      {formatPct(pick.annualized, 1)}
-                    </Text>
-                  </View>
-                </View>
-
-                {pick.expiry && (
-                  <Text style={[typography.caption, { color: colors.textMuted, marginTop: spacing.xs }]}>
-                    Exp: {pick.expiry}{pick.dte != null ? ` (${pick.dte}d)` : ''}
-                  </Text>
-                )}
-
-                <TouchableOpacity
-                  style={[styles.backtestBtn, { borderColor: colors.accent }]}
-                  activeOpacity={0.7}
-                  onPress={() => {
-                    const strategyKey = pick.strategy.toLowerCase().replace(/[\s-]+/g, '_');
-                    const validStrategies = ['sell_put', 'sell_call', 'iron_condor', 'bull_put_spread', 'bear_call_spread'] as const;
-                    const strategy = validStrategies.find((s) => strategyKey.includes(s)) ?? 'sell_put';
-
-                    backtestSetMode('simple');
-                    backtestSetSimpleInput({
-                      symbol: pick.symbol,
-                      strategy,
-                      period: '6mo',
-                    });
-                    backtestSetPendingAutoRun(true);
-                    lightHaptic();
-                    router.navigate('/(tabs)/backtest');
-                  }}
-                >
-                  <Text style={[styles.backtestBtnText, { color: colors.accent }]}>
-                    Backtest
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            )}
+            keyExtractor={topPickKeyExtractor}
+            renderItem={renderTopPick}
+            scrollEventThrottle={16}
+            bounces
+            initialNumToRender={4}
+            maxToRenderPerBatch={4}
           />
         </View>
       )}
@@ -574,45 +576,18 @@ export default function DashboardScreen() {
       <PoweredByDappGo />
       <AppVersion />
 
-      {/* Bottom spacer for tab bar */}
-      <View style={{ height: spacing.xxxl }} />
-
       {/* ── Onboarding overlay ── */}
       <WelcomeCard />
-    </ScrollView>
+    </TabPage>
   );
 }
 
 // ── Styles ──
 
 const styles = StyleSheet.create<Record<string, any>>({
-  container: {
-    flex: 1,
-    padding: spacing.lg,
-  },
-  contentContainer: {
-    paddingBottom: spacing.xl,
-  },
-  centered: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.xl,
-  },
   loadingText: {
     ...typography.body,
     marginTop: spacing.md,
-  },
-  errorEmoji: {
-    fontSize: 40,
-    fontWeight: '700',
-    color: '#ff5252',
-    marginBottom: spacing.sm,
-  },
-  errorText: {
-    ...typography.body,
-    textAlign: 'center',
-    marginBottom: spacing.lg,
   },
   retryBtn: {
     paddingHorizontal: spacing.xl,
@@ -631,6 +606,7 @@ const styles = StyleSheet.create<Record<string, any>>({
     alignItems: 'center',
     width: '100%',
     maxWidth: 360,
+    alignSelf: 'center',
   },
   welcomeTitle: {
     fontSize: 22,
@@ -652,10 +628,6 @@ const styles = StyleSheet.create<Record<string, any>>({
   // Sections
   section: {
     marginBottom: spacing.lg,
-  },
-  sectionTitle: {
-    ...typography.h3,
-    marginBottom: spacing.sm,
   },
 
   // Price cards (horizontal)
@@ -681,7 +653,7 @@ const styles = StyleSheet.create<Record<string, any>>({
     fontWeight: '700',
   },
   marketState: {
-    ...typography.caption,
+    ...typography.small,
     textTransform: 'uppercase',
   },
   priceValue: {
@@ -699,26 +671,6 @@ const styles = StyleSheet.create<Record<string, any>>({
   },
 
   // Model verdict
-  regimeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.sm,
-  },
-  regimeEmoji: {
-    fontSize: 28,
-    marginRight: spacing.sm,
-  },
-  regimeInfo: {
-    flex: 1,
-  },
-  regimeName: {
-    ...typography.h3,
-    fontWeight: '700',
-  },
-  regimeMeta: {
-    flexDirection: 'row',
-    marginTop: 2,
-  },
   tickerVerdicts: {
     borderTopWidth: 1,
     paddingTop: spacing.sm,
@@ -770,16 +722,6 @@ const styles = StyleSheet.create<Record<string, any>>({
   },
 
   // Watchlist
-  watchlistHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.sm,
-  },
-  clearAllBtn: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
   watchlistList: {
     paddingVertical: spacing.xs,
     gap: spacing.sm,
@@ -796,7 +738,7 @@ const styles = StyleSheet.create<Record<string, any>>({
     marginBottom: 2,
   },
   watchlistStrategy: {
-    fontSize: 11,
+    ...typography.small,
     fontWeight: '600',
     textTransform: 'uppercase',
     marginBottom: 4,
@@ -807,7 +749,7 @@ const styles = StyleSheet.create<Record<string, any>>({
     marginBottom: 2,
   },
   watchlistExpiry: {
-    fontSize: 11,
+    ...typography.small,
     marginTop: 2,
   },
 
@@ -873,7 +815,7 @@ const styles = StyleSheet.create<Record<string, any>>({
     fontWeight: '700',
   },
 
-  // Quick backtest button on pick cards
+  // Quick backtest button
   backtestBtn: {
     marginTop: spacing.sm,
     borderWidth: 1,

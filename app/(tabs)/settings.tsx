@@ -50,7 +50,8 @@ export default function SettingsScreen() {
   const [cacheKeyCount, setCacheKeyCount] = useState(0);
   const backtestCount = useBacktestStore((s) => s.savedResults.length);
   const watchlistCount = useWatchlistStore((s) => s.items.length);
-  const reportsCount = useAppStore((s) => Object.keys(s.reports).length);
+  const reports = useAppStore((s) => s.reports);
+  const reportsCount = Object.keys(reports).length;
 
   useEffect(() => {
     // Load keys from SecureStore on mount
@@ -157,6 +158,9 @@ export default function SettingsScreen() {
         style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top + 8 }]}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
+        showsVerticalScrollIndicator={false}
+        scrollEventThrottle={16}
+        bounces
       >
         <Text style={[styles.title, { color: colors.textHeading }]}>Settings</Text>
 
@@ -475,7 +479,7 @@ export default function SettingsScreen() {
 
 const styles = StyleSheet.create<Record<string, any>>({
   container: { flex: 1, padding: 16 },
-  title: { fontSize: 28, fontWeight: '700', marginTop: 8, marginBottom: 16 },
+  title: { fontSize: 28, fontWeight: '700', letterSpacing: -1, marginTop: 8, marginBottom: 16 },
   sectionHeader: { fontSize: 12, fontWeight: '700', letterSpacing: 1, marginBottom: 8, marginTop: 12, marginLeft: 4 },
   profileRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
   avatar: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
