@@ -271,14 +271,8 @@ export default function MatrixScreen() {
       </View>
 
       {/* ── Ticker chips ── */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.tickerRow}
-        contentContainerStyle={styles.tickerContent}
-        scrollEventThrottle={16}
-        bounces
-      >
+      <View style={styles.tickerRow}>
+        <View style={styles.tickerContent}>
         {TICKERS.map((ticker) => {
           const active = ticker === selectedTicker;
           return (
@@ -310,7 +304,8 @@ export default function MatrixScreen() {
             </TouchableOpacity>
           );
         })}
-      </ScrollView>
+        </View>
+      </View>
 
       {/* ── Selected ticker price row ── */}
       {(() => {
@@ -554,20 +549,20 @@ const styles = StyleSheet.create<Record<string, any>>({
   // Ticker chips
   tickerRow: {
     marginBottom: 4,
+    paddingHorizontal: 16,
   },
   tickerContent: {
-    paddingHorizontal: 16,
+    flexDirection: 'row',
     gap: 10,
     paddingVertical: 8,
   },
   tickerChip: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 0,
     borderRadius: 24,
-    borderWidth: 1.5,
+    borderWidth: 1,
     height: 44,
-    width: 80,
   },
   tickerSymbol: {
     fontSize: 15,
