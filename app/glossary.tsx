@@ -11,44 +11,28 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../src/theme';
+import { useSettingsStore } from '../src/store/settings-store';
+import { GLOSSARY_TERMS, type GlossaryTerm } from '../src/data/glossary-data';
 
-interface Term {
+interface DisplayTerm {
+  id: string;
   title: string;
   definition: string;
 }
 
-const TERMS: Term[] = [
-  { title: 'ATM (At The Money)', definition: 'Strike price equals current stock price.' },
-  { title: 'Bid/Ask', definition: 'The price buyers offer / sellers want for an option contract.' },
-  { title: 'Call Option', definition: 'Right to buy stock at the strike price before expiration.' },
-  { title: 'CP Score', definition: 'Our composite score ranking trades by overall value.' },
-  { title: 'Delta', definition: 'How much the option price moves per $1 stock move.' },
-  { title: 'DTE (Days to Expiry)', definition: 'Trading days remaining until the option expires.' },
-  { title: 'Expected Move', definition: 'How much the market thinks the stock will move by expiration.' },
-  { title: 'GEX (Gamma Exposure)', definition: 'Dealer hedging pressure at each strike price level.' },
-  { title: 'Greeks', definition: 'Delta, Gamma, Theta, Vega \u2014 measures of option price sensitivity.' },
-  { title: 'Implied Volatility (IV)', definition: "Market's expected future volatility priced into options." },
-  { title: 'Iron Condor', definition: 'Sell put + call spreads simultaneously for range-bound income.' },
-  { title: 'IV Rank', definition: 'Current IV compared to its 52-week range, from 0\u2013100%.' },
-  { title: 'Max Pain', definition: 'The strike price where option sellers profit the most at expiry.' },
-  { title: 'OTM (Out of The Money)', definition: 'Put below / Call above current stock price. No intrinsic value.' },
-  { title: 'P/C Ratio', definition: 'Put vs Call volume ratio, shows overall market sentiment.' },
-  { title: 'POP (Probability of Profit)', definition: 'The statistical chance of keeping your premium.' },
-  { title: 'Premium', definition: 'Price paid or received for an option contract.' },
-  { title: 'Sell Call', definition: 'Sell the right to buy \u2014 a bearish or neutral strategy.' },
-  { title: 'Sell Put', definition: 'Sell the right to sell \u2014 a bullish strategy to collect premium.' },
-  { title: 'Spread', definition: 'Difference between the bid and ask price of an option.' },
-  { title: 'Strike Price', definition: 'The price at which the option can be exercised.' },
-  { title: 'Theta', definition: 'How much value an option loses per day from time decay.' },
-  { title: 'Vega', definition: 'How much the option price changes per 1% change in IV.' },
-  { title: 'Wheel Strategy', definition: 'Sell put \u2192 get assigned \u2192 sell call \u2192 repeat. Income cycle.' },
-];
+/**
+ * Map a GlossaryTerm to display form based on current language.
+ */
+function toDisplayTerm(term: GlossaryTerm, lang: 'en' | 'zh'): DisplayTerm {
+  const loc = term[lang];
+  return { id: term.id, title: loc.term, definition: loc.definition };
+}
 
 /**
  * Group terms into alphabetical sections.
  */
-function buildSections(terms: Term[]) {
-  const map = new Map<string, Term[]>();
+function buildSections(terms: DisplayTerm[]) {
+  const map = new Map<string, DisplayTerm[]>();
   for (const term of terms) {
     const letter = term.title[0].toUpperCase();
     if (!map.has(letter)) map.set(letter, []);
@@ -63,17 +47,30 @@ export default function GlossaryScreen() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const language = useSettingsStore((s) => s.language);
   const [query, setQuery] = useState('');
 
+  const pageTitle = language === 'zh' ? '術語表' : 'Glossary';
+  const searchPlaceholder = language === 'zh' ? '搜尋術語...' : 'Search terms...';
+  const emptyText = language === 'zh' ? '沒有符合的術語' : 'No matching terms';
+
+  const displayTerms = useMemo(
+    () => GLOSSARY_TERMS.map((t) => toDisplayTerm(t, language)),
+    [language],
+  );
+
   const filtered = useMemo(() => {
-    if (!query.trim()) return TERMS;
+    if (!query.trim()) return displayTerms;
     const q = query.toLowerCase();
-    return TERMS.filter(
+    // Search across both languages for better discoverability
+    return GLOSSARY_TERMS.filter(
       (t) =>
-        t.title.toLowerCase().includes(q) ||
-        t.definition.toLowerCase().includes(q)
-    );
-  }, [query]);
+        t.en.term.toLowerCase().includes(q) ||
+        t.en.definition.toLowerCase().includes(q) ||
+        t.zh.term.toLowerCase().includes(q) ||
+        t.zh.definition.toLowerCase().includes(q)
+    ).map((t) => toDisplayTerm(t, language));
+  }, [query, language, displayTerms]);
 
   const sections = useMemo(() => buildSections(filtered), [filtered]);
 
@@ -84,7 +81,7 @@ export default function GlossaryScreen() {
         <TouchableOpacity onPress={() => router.back()} activeOpacity={0.7} style={styles.backBtn}>
           <Ionicons name="chevron-back" size={24} color={colors.textHeading} />
         </TouchableOpacity>
-        <Text style={[styles.title, { color: colors.textHeading }]}>Glossary</Text>
+        <Text style={[styles.title, { color: colors.textHeading }]}>{pageTitle}</Text>
       </View>
 
       {/* Search */}
@@ -93,7 +90,7 @@ export default function GlossaryScreen() {
           <Ionicons name="search" size={16} color={colors.textMuted} />
           <TextInput
             style={[styles.searchInput, { color: colors.text }]}
-            placeholder="Search terms..."
+            placeholder={searchPlaceholder}
             placeholderTextColor={colors.textMuted}
             value={query}
             onChangeText={setQuery}
@@ -111,7 +108,7 @@ export default function GlossaryScreen() {
       {/* Terms list */}
       <SectionList
         sections={sections}
-        keyExtractor={(item) => item.title}
+        keyExtractor={(item) => item.id}
         renderSectionHeader={({ section }) => (
           <View style={[styles.sectionHeader, { backgroundColor: colors.background }]}>
             <Text style={[styles.sectionLetter, { color: colors.gold }]}>{section.title}</Text>
@@ -128,7 +125,7 @@ export default function GlossaryScreen() {
         stickySectionHeadersEnabled
         ListEmptyComponent={
           <View style={styles.empty}>
-            <Text style={[styles.emptyText, { color: colors.textMuted }]}>No matching terms</Text>
+            <Text style={[styles.emptyText, { color: colors.textMuted }]}>{emptyText}</Text>
           </View>
         }
       />

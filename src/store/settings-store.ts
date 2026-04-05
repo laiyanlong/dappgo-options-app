@@ -9,6 +9,7 @@ interface SettingsState {
   githubUsername: string;
   githubRepo: string;
   hasCompletedOnboarding: boolean;
+  hasSeenWatchlistTip: boolean;
   notifications: {
     dailyReport: boolean;
     highCpAlert: boolean;
@@ -26,6 +27,7 @@ interface SettingsState {
   setGithubUsername: (username: string) => void;
   setGithubRepo: (repo: string) => void;
   setHasCompletedOnboarding: (value: boolean) => void;
+  setHasSeenWatchlistTip: (value: boolean) => void;
   setNotification: (key: keyof SettingsState['notifications'], value: boolean) => void;
 }
 
@@ -38,6 +40,7 @@ export const useSettingsStore = create<SettingsState>()(
       githubUsername: 'laiyanlong',
       githubRepo: 'options-daily-report',
       hasCompletedOnboarding: false,
+      hasSeenWatchlistTip: false,
       notifications: {
         dailyReport: true,
         highCpAlert: true,
@@ -63,6 +66,7 @@ export const useSettingsStore = create<SettingsState>()(
       setGithubUsername: (username) => set({ githubUsername: username }),
       setGithubRepo: (repo) => set({ githubRepo: repo }),
       setHasCompletedOnboarding: (value) => set({ hasCompletedOnboarding: value }),
+      setHasSeenWatchlistTip: (value) => set({ hasSeenWatchlistTip: value }),
       setNotification: (key, value) =>
         set((s) => ({
           notifications: { ...s.notifications, [key]: value },

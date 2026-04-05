@@ -14,6 +14,7 @@ import {
   Keyboard,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
@@ -38,6 +39,7 @@ export default function SettingsScreen() {
   const { colors, isDark, mode } = useTheme();
   const settings = useSettingsStore();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
 
   const [newTicker, setNewTicker] = useState('');
   const [showGeminiKey, setShowGeminiKey] = useState(false);
@@ -524,6 +526,22 @@ export default function SettingsScreen() {
             <Text style={[styles.aboutLabel, { color: colors.textMuted }]}>SDK</Text>
             <Text style={[styles.aboutValue, { color: colors.textHeading }]}>Expo {Constants.expoConfig?.sdkVersion ?? '54'}</Text>
           </View>
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
+          <TouchableOpacity
+            onPress={() => router.push('/feedback')}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="Send Feedback"
+            style={styles.aboutRow}
+          >
+            <View style={styles.dataStatRow}>
+              <Ionicons name="chatbubble-ellipses-outline" size={16} color={colors.accent} style={{ marginRight: 8 }} />
+              <Text style={[styles.aboutLabel, { color: colors.textMuted }]}>
+                {settings.language === 'zh' ? '意見回饋' : 'Send Feedback'}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+          </TouchableOpacity>
         </Card>
 
         {/* ── Branding ── */}

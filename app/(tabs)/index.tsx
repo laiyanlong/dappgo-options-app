@@ -182,17 +182,34 @@ const PriceCard = React.memo(function PriceCard({
   );
 });
 
+// ── DTE helper ──
+
+function calcDte(expiry: string): number | null {
+  if (!expiry) return null;
+  const expiryDate = new Date(expiry);
+  if (isNaN(expiryDate.getTime())) return null;
+  const now = new Date();
+  const diffMs = expiryDate.getTime() - now.getTime();
+  return Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+}
+
 // ── Memoized Watchlist Card ──
 
 const WatchlistCard = React.memo(function WatchlistCard({
   item,
   colors,
   onPress,
+  onRemove,
+  onBacktest,
 }: {
   item: WatchlistItem;
   colors: ReturnType<typeof useTheme>['colors'];
   onPress: () => void;
+  onRemove: () => void;
+  onBacktest: () => void;
 }) {
+  const dte = calcDte(item.expiry);
+
   return (
     <TouchableOpacity
       style={[
@@ -205,6 +222,16 @@ const WatchlistCard = React.memo(function WatchlistCard({
       activeOpacity={0.7}
       onPress={onPress}
     >
+      {/* Remove button */}
+      <TouchableOpacity
+        onPress={onRemove}
+        activeOpacity={0.7}
+        style={styles.watchlistRemoveBtn}
+        hitSlop={8}
+      >
+        <Ionicons name="close-circle" size={16} color={colors.textMuted} />
+      </TouchableOpacity>
+
       <Text style={[styles.watchlistSymbol, { color: colors.gold }]}>
         {item.symbol}
       </Text>
@@ -216,9 +243,18 @@ const WatchlistCard = React.memo(function WatchlistCard({
       </Text>
       {item.expiry ? (
         <Text style={[styles.watchlistExpiry, { color: colors.textMuted }]}>
-          Exp: {item.expiry}
+          {item.expiry}{dte != null ? ` (${dte}d)` : ''}
         </Text>
       ) : null}
+
+      {/* Backtest quick action */}
+      <TouchableOpacity
+        onPress={onBacktest}
+        activeOpacity={0.7}
+        style={[styles.watchlistBacktestBtn, { borderColor: colors.accent }]}
+      >
+        <Text style={[styles.watchlistBacktestText, { color: colors.accent }]}>Backtest</Text>
+      </TouchableOpacity>
     </TouchableOpacity>
   );
 });
@@ -235,6 +271,7 @@ export default function DashboardScreen() {
   // Watchlist - split selectors to reduce re-renders
   const watchlistItems = useWatchlistStore((s) => s.items);
   const clearWatchlist = useWatchlistStore((s) => s.clearAll);
+  const removeWatchlistByKey = useWatchlistStore((s) => s.removeByKey);
 
   // Split store selectors for granular re-renders
   const dashboardData = useAppStore((s) => s.dashboardData);
@@ -370,9 +407,28 @@ export default function DashboardScreen() {
 
   const renderWatchlistCard = useCallback(
     ({ item }: { item: WatchlistItem }) => (
-      <WatchlistCard item={item} colors={colors} onPress={navigateToMatrix} />
+      <WatchlistCard
+        item={item}
+        colors={colors}
+        onPress={navigateToMatrix}
+        onRemove={() => removeWatchlistByKey(item.symbol, item.strike)}
+        onBacktest={() => {
+          const strategyKey = item.strategy.toLowerCase().replace(/[\s-]+/g, '_');
+          const validStrategies = ['sell_put', 'sell_call', 'iron_condor', 'bull_put_spread', 'bear_call_spread'] as const;
+          const strategy = validStrategies.find((s) => strategyKey.includes(s)) ?? 'sell_put';
+          backtestSetMode('simple');
+          backtestSetSimpleInput({
+            symbol: item.symbol,
+            strategy,
+            period: '6mo',
+          });
+          backtestSetPendingAutoRun(true);
+          lightHaptic();
+          router.navigate('/(tabs)/backtest');
+        }}
+      />
     ),
-    [colors, navigateToMatrix],
+    [colors, navigateToMatrix, removeWatchlistByKey, backtestSetMode, backtestSetSimpleInput, backtestSetPendingAutoRun, router],
   );
 
   const topPickKeyExtractor = useCallback(
@@ -664,12 +720,12 @@ export default function DashboardScreen() {
       )}
 
       {/* ── Watchlist ── */}
-      {watchlistItems.length > 0 && (
-        <View style={styles.section}>
-          <SectionHeader
-            title={'\uD83D\uDCCC Watchlist'}
-            action={{ label: 'Clear All', onPress: clearWatchlist }}
-          />
+      <View style={styles.section}>
+        <SectionHeader
+          title={`\u2764\uFE0F Watchlist${watchlistItems.length > 0 ? ` (${watchlistItems.length})` : ''}`}
+          action={watchlistItems.length > 0 ? { label: 'Clear All', onPress: clearWatchlist } : undefined}
+        />
+        {watchlistItems.length > 0 ? (
           <FlatList
             data={watchlistItems}
             horizontal
@@ -682,8 +738,16 @@ export default function DashboardScreen() {
             initialNumToRender={5}
             maxToRenderPerBatch={5}
           />
-        </View>
-      )}
+        ) : (
+          <Card>
+            <View style={styles.watchlistEmpty}>
+              <Text style={[styles.watchlistEmptyText, { color: colors.textMuted }]}>
+                Tap {'\u2764\uFE0F'} on any strike in Matrix to save it here
+              </Text>
+            </View>
+          </Card>
+        )}
+      </View>
 
       {/* ── Today's Top Picks ── */}
       {topPicks.length > 0 && (
@@ -925,10 +989,37 @@ const styles = StyleSheet.create<Record<string, any>>({
     gap: spacing.sm,
   },
   watchlistCard: {
-    width: 140,
+    width: 160,
     padding: spacing.md,
     borderRadius: borderRadius.lg,
     borderWidth: 1,
+    position: 'relative' as const,
+  },
+  watchlistRemoveBtn: {
+    position: 'absolute' as const,
+    top: 6,
+    right: 6,
+    zIndex: 1,
+    padding: 2,
+  },
+  watchlistBacktestBtn: {
+    marginTop: spacing.xs,
+    borderWidth: 1,
+    borderRadius: 6,
+    paddingVertical: 4,
+    alignItems: 'center' as const,
+  },
+  watchlistBacktestText: {
+    fontSize: 11,
+    fontWeight: '700' as const,
+  },
+  watchlistEmpty: {
+    paddingVertical: spacing.lg,
+    alignItems: 'center' as const,
+  },
+  watchlistEmptyText: {
+    fontSize: 14,
+    textAlign: 'center' as const,
   },
   watchlistSymbol: {
     fontSize: 15,

@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useRef, useState, useEffect } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Animated, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../theme';
 import { Card } from '../ui/Card';
@@ -8,6 +8,7 @@ import { InfoTooltip } from '../ui/InfoTooltip';
 import { formatDollar, formatVolume } from '../../utils/format';
 import { useWatchlistStore } from '../../store/watchlist-store';
 import { useCompareStore } from '../../store/compare-store';
+import { useSettingsStore } from '../../store/settings-store';
 import type { OptionEntry } from '../../utils/types';
 
 interface StrikeCardProps {
@@ -77,6 +78,14 @@ export const StrikeCard = React.memo(function StrikeCard({
   const { colors } = useTheme();
   const stars = calculateStarRating(entry);
 
+  // Heart pulse animation
+  const heartScale = useRef(new Animated.Value(1)).current;
+
+  // Watchlist tip state
+  const [showWatchlistTip, setShowWatchlistTip] = useState(false);
+  const hasSeenWatchlistTip = useSettingsStore((s) => s.hasSeenWatchlistTip);
+  const setHasSeenWatchlistTip = useSettingsStore((s) => s.setHasSeenWatchlistTip);
+
   // Compare store integration
   const isInCompare = useCompareStore((s) =>
     s.items.some((i) => i.symbol === symbol && i.strike === entry.strike)
@@ -111,12 +120,32 @@ export const StrikeCard = React.memo(function StrikeCard({
   const removeByKey = useWatchlistStore((s) => s.removeByKey);
 
   const toggleWatchlist = () => {
+    // Pulse animation
+    Animated.sequence([
+      Animated.spring(heartScale, { toValue: 1.4, useNativeDriver: true, friction: 3 }),
+      Animated.spring(heartScale, { toValue: 1, useNativeDriver: true, friction: 3 }),
+    ]).start();
+
     if (isInWatchlist) {
       removeByKey(symbol, entry.strike);
     } else {
       addWatchItem({ symbol, strategy, strike: entry.strike, expiry });
+      // Show first-time tooltip
+      if (!hasSeenWatchlistTip) {
+        setShowWatchlistTip(true);
+        setHasSeenWatchlistTip(true);
+        setTimeout(() => setShowWatchlistTip(false), 3000);
+      }
     }
   };
+
+  // Auto-dismiss watchlist tip
+  useEffect(() => {
+    if (showWatchlistTip) {
+      const timer = setTimeout(() => setShowWatchlistTip(false), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [showWatchlistTip]);
 
   // Color helpers
   const popColor =
@@ -193,11 +222,13 @@ export const StrikeCard = React.memo(function StrikeCard({
             </TouchableOpacity>
             {symbol !== '' && (
               <TouchableOpacity onPress={toggleWatchlist} activeOpacity={0.7} style={compactStyles.iconBtn}>
-                <Ionicons
-                  name={isInWatchlist ? 'heart' : 'heart-outline'}
-                  size={22}
-                  color={isInWatchlist ? colors.negative : colors.textMuted}
-                />
+                <Animated.View style={{ transform: [{ scale: heartScale }] }}>
+                  <Ionicons
+                    name={isInWatchlist ? 'heart' : 'heart-outline'}
+                    size={22}
+                    color={isInWatchlist ? colors.negative : colors.textMuted}
+                  />
+                </Animated.View>
               </TouchableOpacity>
             )}
             <TouchableOpacity onPress={onBacktest} activeOpacity={0.7} style={compactStyles.iconBtn}>
@@ -346,14 +377,36 @@ export const StrikeCard = React.memo(function StrikeCard({
             onPress={toggleWatchlist}
             activeOpacity={0.7}
           >
-            <Ionicons
-              name={isInWatchlist ? 'heart' : 'heart-outline'}
-              size={22}
-              color={isInWatchlist ? colors.negative : colors.textMuted}
-            />
+            <Animated.View style={{ transform: [{ scale: heartScale }] }}>
+              <Ionicons
+                name={isInWatchlist ? 'heart' : 'heart-outline'}
+                size={22}
+                color={isInWatchlist ? colors.negative : colors.textMuted}
+              />
+            </Animated.View>
           </TouchableOpacity>
         )}
       </View>
+
+      {/* First-time watchlist tooltip */}
+      <Modal
+        visible={showWatchlistTip}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowWatchlistTip(false)}
+      >
+        <TouchableOpacity
+          style={styles.tipOverlay}
+          activeOpacity={1}
+          onPress={() => setShowWatchlistTip(false)}
+        >
+          <View style={[styles.tipCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Text style={[styles.tipText, { color: colors.textHeading }]}>
+              {'\u2764\uFE0F'} Added to Watchlist!{'\n'}View your saved strikes on the Dashboard.
+            </Text>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </Card>
   );
 });
@@ -540,5 +593,24 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     minHeight: 44,
     minWidth: 44,
+  },
+  tipOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  tipCard: {
+    marginHorizontal: 40,
+    padding: 24,
+    borderRadius: 16,
+    borderWidth: 1,
+    alignItems: 'center',
+  },
+  tipText: {
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+    lineHeight: 24,
   },
 });
