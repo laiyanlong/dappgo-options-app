@@ -12,6 +12,7 @@ import {
   Platform,
   useWindowDimensions,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../src/theme';
 import { useAppStore } from '../../src/store/app-store';
@@ -19,6 +20,7 @@ import { fetchDashboardData } from '../../src/data/github-api';
 import { GITHUB_OWNER, GITHUB_REPO } from '../../src/utils/constants';
 import { mapTslaMatrix } from '../../src/data/mappers';
 import { useBacktestStore } from '../../src/store/backtest-store';
+import { useCompareStore, type CompareItem } from '../../src/store/compare-store';
 import { SegmentedControl } from '../../src/components/ui/SegmentedControl';
 import { SectionHeader } from '../../src/components/ui/SectionHeader';
 import { StrikeCard, calculateStarRating } from '../../src/components/trade/StrikeCard';
@@ -48,11 +50,18 @@ export default function MatrixScreen() {
   const setDashboardData = useAppStore((s) => s.setDashboardData);
   const quotes = useAppStore((s) => s.quotes);
 
-  // ── Local UI state (before useEffect so they can be referenced) ──
+  // ── Compare store ──
+  const compareItems = useCompareStore((s) => s.items);
+  const clearAllCompare = useCompareStore((s) => s.clearAll);
+  const removeCompareItem = useCompareStore((s) => s.removeItem);
+
+  // ── Compare bottom sheet visibility ──
+  const [compareSheetOpen, setCompareSheetOpen] = useState(false);
+
+  // ── Local UI state ──
   const [selectedTicker, setSelectedTicker] = useState<Ticker>('TSLA');
   const [selectedExpiryIdx, setSelectedExpiryIdx] = useState(0);
   const [typeIndex, setTypeIndex] = useState(0);
-  const [checkedStrikes, setCheckedStrikes] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(false);
 
   // Auto-fetch if no matrix data for selected ticker
@@ -140,24 +149,6 @@ export default function MatrixScreen() {
     }
   }, [strikes]);
 
-  // ── Compare mode ──
-  const comparedEntries = useMemo(
-    () => strikes.filter((s) => checkedStrikes.has(s.strike)),
-    [strikes, checkedStrikes]
-  );
-
-  const toggleCompare = useCallback((strike: number) => {
-    setCheckedStrikes((prev) => {
-      const next = new Set(prev);
-      if (next.has(strike)) {
-        next.delete(strike);
-      } else if (next.size < 3) {
-        next.add(strike);
-      }
-      return next;
-    });
-  }, []);
-
   // ── Backtest action ──
   const addToPortfolio = useBacktestStore((s) => s.addToPortfolio);
   const setSimpleInput = useBacktestStore((s) => s.setSimpleInput);
@@ -175,24 +166,25 @@ export default function MatrixScreen() {
   );
 
   const handleCompareBacktest = useCallback(() => {
-    comparedEntries.forEach((entry) => {
+    compareItems.forEach((item) => {
       addToPortfolio({
-        symbol: selectedTicker,
-        strategy: typeIndex === 0 ? 'sell_put' : 'sell_call',
-        otmPct: Math.abs(entry.otmPct ?? 0),
+        symbol: item.symbol,
+        strategy: 'sell_put',
+        otmPct: 5,
         period: '6mo',
-        strike: entry.strike,
+        strike: item.strike,
       });
     });
-    setCheckedStrikes(new Set());
-    // Switch to Backtest tab (advanced mode)
+    clearAllCompare();
+    setCompareSheetOpen(false);
     router.navigate('/(tabs)/backtest');
-  }, [comparedEntries, selectedTicker, typeIndex, addToPortfolio, router]);
+  }, [compareItems, addToPortfolio, clearAllCompare, router]);
 
   // ── Render helpers ──
 
   const strategyLabel = typeIndex === 0 ? 'sell_put' : 'sell_call';
   const activeExpiryDate = activeExpiry?.date ?? '';
+  const activeDte = activeExpiry?.dte ?? 0;
 
   const renderStrikeCard = useCallback(
     ({ item }: { item: OptionEntry }) => (
@@ -201,17 +193,16 @@ export default function MatrixScreen() {
           entry={item}
           currentPrice={currentPrice}
           isBest={bestStrike?.strike === item.strike}
-          isChecked={checkedStrikes.has(item.strike)}
-          onToggleCompare={() => toggleCompare(item.strike)}
           onBacktest={() => handleBacktest(item)}
           symbol={selectedTicker}
           strategy={strategyLabel}
           expiry={activeExpiryDate}
+          dte={activeDte}
           compact={!isWide}
         />
       </View>
     ),
-    [currentPrice, bestStrike, checkedStrikes, isWide, toggleCompare, handleBacktest, selectedTicker, strategyLabel, activeExpiryDate]
+    [currentPrice, bestStrike, isWide, handleBacktest, selectedTicker, strategyLabel, activeExpiryDate, activeDte]
   );
 
   const keyExtractor = useCallback((item: OptionEntry) => `${item.strike}`, []);
@@ -262,12 +253,21 @@ export default function MatrixScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top + 12 }]}>
-      {/* ── Header ── */}
+      {/* ── Header with glossary link ── */}
       <View style={styles.header}>
-        <Text style={[styles.title, { color: colors.textHeading }]}>Options Matrix</Text>
-        <Text style={[styles.subtitle, { color: colors.textMuted }]}>
-          Strike comparison & analysis
-        </Text>
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.title, { color: colors.textHeading }]}>Options Matrix</Text>
+          <Text style={[styles.subtitle, { color: colors.textMuted }]}>
+            Strike comparison & analysis
+          </Text>
+        </View>
+        <TouchableOpacity
+          onPress={() => router.push('/glossary')}
+          activeOpacity={0.7}
+          style={styles.glossaryBtn}
+        >
+          <Ionicons name="help-circle-outline" size={24} color={colors.textMuted} />
+        </TouchableOpacity>
       </View>
 
       {/* ── Ticker chips ── */}
@@ -288,7 +288,7 @@ export default function MatrixScreen() {
               onPress={() => {
                 setSelectedTicker(ticker);
                 setSelectedExpiryIdx(0);
-                setCheckedStrikes(new Set());
+                // Do NOT clear compare list — cross-ticker compare persists
               }}
               activeOpacity={0.7}
             >
@@ -336,7 +336,6 @@ export default function MatrixScreen() {
                 style={styles.expiryTab}
                 onPress={() => {
                   setSelectedExpiryIdx(idx);
-                  setCheckedStrikes(new Set());
                 }}
                 activeOpacity={0.7}
               >
@@ -378,7 +377,6 @@ export default function MatrixScreen() {
           selectedIndex={typeIndex}
           onChange={(idx) => {
             setTypeIndex(idx);
-            setCheckedStrikes(new Set());
           }}
         />
       </View>
@@ -401,7 +399,10 @@ export default function MatrixScreen() {
           data={strikes}
           renderItem={renderStrikeCard}
           keyExtractor={keyExtractor}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[
+            styles.listContent,
+            compareItems.length > 0 && { paddingBottom: 180 },
+          ]}
           numColumns={isWide ? 2 : 1}
           key={isWide ? 'wide' : 'narrow'}
           showsVerticalScrollIndicator={false}
@@ -421,95 +422,94 @@ export default function MatrixScreen() {
         />
       )}
 
-      {/* ── Compare floating badge (when 1+ selected) ── */}
-      {checkedStrikes.size > 0 && checkedStrikes.size < 2 && (
-        <View style={[styles.floatingBadge, { backgroundColor: colors.accent }]}>
-          <Text style={styles.floatingBadgeText}>
-            {checkedStrikes.size} selected — check 1 more to compare
+      {/* ── Floating compare bar (when items > 0) ── */}
+      {compareItems.length > 0 && !compareSheetOpen && (
+        <TouchableOpacity
+          style={[styles.floatingBar, { backgroundColor: colors.accent }]}
+          onPress={() => setCompareSheetOpen(true)}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.floatingBarText}>
+            Compare ({compareItems.length})
           </Text>
-        </View>
+          <Ionicons name="chevron-up" size={18} color="#fff" />
+        </TouchableOpacity>
       )}
 
-      {/* ── Compare bottom sheet (when 2+ selected) ── */}
-      {comparedEntries.length >= 2 && (
+      {/* ── Compare bottom sheet ── */}
+      {compareSheetOpen && compareItems.length > 0 && (
         <View style={[styles.compareSheet, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Text style={[styles.compareTitle, { color: colors.textHeading }]}>
-            Compare ({comparedEntries.length})
-          </Text>
+          {/* Sheet header */}
+          <View style={styles.compareHeader}>
+            <Text style={[styles.compareTitle, { color: colors.textHeading }]}>
+              Compare ({compareItems.length})
+            </Text>
+            <TouchableOpacity onPress={() => setCompareSheetOpen(false)} activeOpacity={0.7}>
+              <Ionicons name="chevron-down" size={22} color={colors.textMuted} />
+            </TouchableOpacity>
+          </View>
 
-          {/* Side-by-side summary */}
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} scrollEventThrottle={16} bounces>
-            <View style={styles.compareRow}>
-              {comparedEntries.map((entry) => (
-                <View key={entry.strike} style={styles.compareCol}>
-                  <Text style={[styles.compareStrike, { color: colors.gold }]}>
-                    {formatDollar(entry.strike)}
+          {/* Compared items */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            scrollEventThrottle={16}
+            bounces
+            contentContainerStyle={styles.compareScroll}
+          >
+            {compareItems.map((item) => (
+              <View key={`${item.symbol}-${item.strike}`} style={[styles.compareCard, { backgroundColor: colors.background, borderColor: colors.border }]}>
+                <View style={styles.compareCardHeader}>
+                  <Text style={[styles.compareSymbol, { color: colors.gold }]}>
+                    {item.symbol} {formatDollar(item.strike)}
                   </Text>
-                  <Text style={[styles.compareStat, { color: colors.textMuted }]}>
-                    POP {entry.pop.toFixed(1)}%
-                  </Text>
-                  <Text style={[styles.compareStat, { color: colors.textMuted }]}>
-                    Ann {entry.annualized.toFixed(1)}%
-                  </Text>
-                  <Text style={[styles.compareStat, { color: colors.textMuted }]}>
-                    IV {entry.iv.toFixed(1)}%
-                  </Text>
+                  <TouchableOpacity
+                    onPress={() => removeCompareItem(item.symbol, item.strike)}
+                    activeOpacity={0.7}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Ionicons name="close" size={16} color={colors.textMuted} />
+                  </TouchableOpacity>
                 </View>
-              ))}
-            </View>
+                <Text style={[styles.compareStat, { color: colors.textMuted }]}>
+                  Bid {formatDollar(item.bid)}
+                </Text>
+                <Text style={[styles.compareStat, { color: colors.textMuted }]}>
+                  POP {item.pop.toFixed(1)}%
+                </Text>
+                <Text style={[styles.compareStat, { color: colors.textMuted }]}>
+                  Ann {item.annualized.toFixed(1)}%
+                </Text>
+                <Text style={[styles.compareStat, { color: colors.textMuted }]}>
+                  IV {item.iv.toFixed(1)}%
+                </Text>
+              </View>
+            ))}
           </ScrollView>
 
-          {/* Comparison insight */}
-          {comparedEntries.length === 2 && (
-            <CompareInsight a={comparedEntries[0]} b={comparedEntries[1]} colors={colors} />
-          )}
-
-          {/* Compare in Backtest button */}
-          <TouchableOpacity
-            style={[styles.compareBtn, { backgroundColor: colors.accent }]}
-            onPress={handleCompareBacktest}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.compareBtnText}>Compare in Backtest {'\u2192'}</Text>
-          </TouchableOpacity>
+          {/* Action buttons */}
+          <View style={styles.compareActions}>
+            <TouchableOpacity
+              style={[styles.clearBtn, { borderColor: colors.border }]}
+              onPress={() => {
+                clearAllCompare();
+                setCompareSheetOpen(false);
+              }}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.clearBtnText, { color: colors.textMuted }]}>Clear All</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.backtestBtn, { backgroundColor: colors.accent }]}
+              onPress={handleCompareBacktest}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.backtestBtnText}>Compare in Backtest {'\u2192'}</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       )}
     </View>
-  );
-}
-
-// ── Compare insight sub-component ──
-
-function CompareInsight({
-  a,
-  b,
-  colors,
-}: {
-  a: OptionEntry;
-  b: OptionEntry;
-  colors: ReturnType<typeof useTheme>['colors'];
-}) {
-  const popDiff = Math.abs(a.pop - b.pop);
-  const annDiff = Math.abs(a.annualized - b.annualized);
-
-  // Determine which is higher-POP and which is higher-annualized
-  const higherPop = a.pop >= b.pop ? a : b;
-  const higherAnn = a.annualized >= b.annualized ? a : b;
-
-  if (higherPop.strike === higherAnn.strike) {
-    // Same strike dominates both metrics
-    return (
-      <Text style={[styles.insightText, { color: colors.textMuted }]}>
-        {formatDollar(higherPop.strike)} leads in both POP (+{popDiff.toFixed(1)}%) and annualized (+{annDiff.toFixed(1)}%)
-      </Text>
-    );
-  }
-
-  return (
-    <Text style={[styles.insightText, { color: colors.textMuted }]}>
-      {formatDollar(higherPop.strike)} has {popDiff.toFixed(1)}% more POP but{' '}
-      {formatDollar(higherAnn.strike)} has {annDiff.toFixed(1)}% more annualized return
-    </Text>
   );
 }
 
@@ -520,6 +520,8 @@ const styles = StyleSheet.create<Record<string, any>>({
     flex: 1,
   },
   header: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
     paddingHorizontal: 16,
     paddingTop: 4,
     marginBottom: 12,
@@ -533,6 +535,13 @@ const styles = StyleSheet.create<Record<string, any>>({
   subtitle: {
     fontSize: 13,
     marginBottom: 12,
+  },
+  glossaryBtn: {
+    padding: 8,
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   // Ticker chips
   tickerRow: {
@@ -623,7 +632,7 @@ const styles = StyleSheet.create<Record<string, any>>({
   // FlatList
   listContent: {
     paddingHorizontal: 12,
-    paddingBottom: 120, // room for compare sheet
+    paddingBottom: 120, // room for compare bar
   },
   gridItem: {
     flex: 1,
@@ -665,21 +674,30 @@ const styles = StyleSheet.create<Record<string, any>>({
   noStrikesText: {
     fontSize: 14,
   },
-  // Compare bottom sheet
-  floatingBadge: {
+  // Floating compare bar
+  floatingBar: {
     position: 'absolute',
     bottom: 20,
     left: 20,
     right: 20,
     paddingVertical: 14,
     borderRadius: 12,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 6,
   },
-  floatingBadgeText: {
+  floatingBarText: {
     color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 15,
+    fontWeight: '700',
   },
+  // Compare bottom sheet
   compareSheet: {
     position: 'absolute',
     bottom: 0,
@@ -689,48 +707,71 @@ const styles = StyleSheet.create<Record<string, any>>({
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
     padding: 16,
-    paddingBottom: 32, // safe area
+    paddingBottom: 32,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.15,
     shadowRadius: 8,
     elevation: 10,
   },
+  compareHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
   compareTitle: {
     fontSize: 16,
     fontWeight: '700',
-    marginBottom: 10,
   },
-  compareRow: {
+  compareScroll: {
+    gap: 10,
+    paddingBottom: 8,
+  },
+  compareCard: {
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 10,
+    minWidth: 120,
+  },
+  compareCardHeader: {
     flexDirection: 'row',
-    gap: 20,
-    marginBottom: 8,
-  },
-  compareCol: {
-    minWidth: 90,
-  },
-  compareStrike: {
-    fontSize: 16,
-    fontWeight: '700',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 4,
+  },
+  compareSymbol: {
+    fontSize: 13,
+    fontWeight: '700',
   },
   compareStat: {
     fontSize: 12,
     marginBottom: 2,
   },
-  insightText: {
-    fontSize: 13,
-    fontStyle: 'italic',
-    marginVertical: 6,
-    lineHeight: 18,
-  },
-  compareBtn: {
+  compareActions: {
+    flexDirection: 'row',
+    gap: 10,
     marginTop: 8,
+  },
+  clearBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  clearBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  backtestBtn: {
+    flex: 1,
     paddingVertical: 12,
     borderRadius: 10,
     alignItems: 'center',
   },
-  compareBtnText: {
+  backtestBtnText: {
     color: '#fff',
     fontSize: 14,
     fontWeight: '700',

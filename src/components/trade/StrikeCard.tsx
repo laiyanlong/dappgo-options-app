@@ -4,8 +4,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../theme';
 import { Card } from '../ui/Card';
 import { StarRating } from '../ui/StarRating';
+import { InfoTooltip } from '../ui/InfoTooltip';
 import { formatDollar, formatVolume } from '../../utils/format';
 import { useWatchlistStore } from '../../store/watchlist-store';
+import { useCompareStore } from '../../store/compare-store';
 import type { OptionEntry } from '../../utils/types';
 
 interface StrikeCardProps {
@@ -15,10 +17,10 @@ interface StrikeCardProps {
   currentPrice: number;
   /** Whether this strike is the best overall pick */
   isBest: boolean;
-  /** Whether this card is checked for compare mode */
-  isChecked: boolean;
-  /** Toggle compare checkbox */
-  onToggleCompare: () => void;
+  /** Whether this card is checked for compare mode (legacy — ignored, uses compare-store) */
+  isChecked?: boolean;
+  /** Toggle compare checkbox (legacy — ignored, uses compare-store) */
+  onToggleCompare?: () => void;
   /** Navigate to backtest for this strike */
   onBacktest: () => void;
   /** Ticker symbol for watchlist (e.g. 'TSLA') */
@@ -27,6 +29,8 @@ interface StrikeCardProps {
   strategy?: string;
   /** Expiry date string for watchlist */
   expiry?: string;
+  /** DTE for compare item */
+  dte?: number;
   /** Compact 2-row layout for narrow screens */
   compact?: boolean;
 }
@@ -63,29 +67,54 @@ export const StrikeCard = React.memo(function StrikeCard({
   entry,
   currentPrice,
   isBest,
-  isChecked,
-  onToggleCompare,
   onBacktest,
   symbol = '',
   strategy = 'sell_put',
   expiry = '',
+  dte = 0,
   compact = false,
 }: StrikeCardProps) {
   const { colors } = useTheme();
   const stars = calculateStarRating(entry);
 
+  // Compare store integration
+  const isInCompare = useCompareStore((s) =>
+    s.items.some((i) => i.symbol === symbol && i.strike === entry.strike)
+  );
+  const addItem = useCompareStore((s) => s.addItem);
+  const removeItem = useCompareStore((s) => s.removeItem);
+
+  const toggleCompare = () => {
+    if (isInCompare) {
+      removeItem(symbol, entry.strike);
+    } else {
+      addItem({
+        symbol,
+        strike: entry.strike,
+        bid: entry.bid,
+        iv: entry.iv,
+        pop: entry.pop,
+        annualized: entry.annualized,
+        delta: entry.delta,
+        spreadQuality: entry.spreadQuality,
+        expiry,
+        dte,
+      });
+    }
+  };
+
   // Watchlist integration — subscribe to items array for reactive updates
   const isInWatchlist = useWatchlistStore((s) =>
     s.items.some((it) => it.symbol === symbol && it.strike === entry.strike)
   );
-  const addItem = useWatchlistStore((s) => s.addItem);
+  const addWatchItem = useWatchlistStore((s) => s.addItem);
   const removeByKey = useWatchlistStore((s) => s.removeByKey);
 
   const toggleWatchlist = () => {
     if (isInWatchlist) {
       removeByKey(symbol, entry.strike);
     } else {
-      addItem({ symbol, strategy, strike: entry.strike, expiry });
+      addWatchItem({ symbol, strategy, strike: entry.strike, expiry });
     }
   };
 
@@ -119,7 +148,7 @@ export const StrikeCard = React.memo(function StrikeCard({
           },
         ]}
       >
-        {/* Row 1: Strike, OTM, Bid, Stars */}
+        {/* Row 1: Strike, OTM, Bid, Stars, Compare toggle */}
         <View style={compactStyles.row}>
           <Text style={[compactStyles.strike, { color: colors.textHeading }]}>
             {formatDollar(entry.strike)}
@@ -133,18 +162,35 @@ export const StrikeCard = React.memo(function StrikeCard({
           </Text>
           <StarRating score={stars} size={12} />
         </View>
-        {/* Row 2: IV, POP, Ann, actions */}
+        {/* Row 2: IV, POP, Ann with tooltips, actions */}
         <View style={compactStyles.row}>
-          <Text style={[compactStyles.metric, { color: colors.gold }]}>
-            IV {(entry.iv ?? 0).toFixed(1)}%
-          </Text>
-          <Text style={[compactStyles.metric, { color: popColor }]}>
-            POP {(entry.pop ?? 0).toFixed(1)}%
-          </Text>
-          <Text style={[compactStyles.metric, { color: colors.accent }]}>
-            Ann {(entry.annualized ?? 0).toFixed(1)}%
-          </Text>
+          <View style={compactStyles.metricRow}>
+            <Text style={[compactStyles.metric, { color: colors.gold }]}>
+              IV {(entry.iv ?? 0).toFixed(1)}%
+            </Text>
+            <InfoTooltip text="Higher IV = more premium" />
+          </View>
+          <View style={compactStyles.metricRow}>
+            <Text style={[compactStyles.metric, { color: popColor }]}>
+              POP {(entry.pop ?? 0).toFixed(1)}%
+            </Text>
+            <InfoTooltip text="Chance of keeping premium" />
+          </View>
+          <View style={compactStyles.metricRow}>
+            <Text style={[compactStyles.metric, { color: colors.accent }]}>
+              Ann {(entry.annualized ?? 0).toFixed(1)}%
+            </Text>
+            <InfoTooltip text="Annualized return if held" />
+          </View>
           <View style={compactStyles.actions}>
+            {/* Compare toggle */}
+            <TouchableOpacity onPress={toggleCompare} activeOpacity={0.7} style={compactStyles.iconBtn}>
+              <Ionicons
+                name={isInCompare ? 'checkmark-circle' : 'add-circle-outline'}
+                size={22}
+                color={isInCompare ? colors.accent : colors.textMuted}
+              />
+            </TouchableOpacity>
             {symbol !== '' && (
               <TouchableOpacity onPress={toggleWatchlist} activeOpacity={0.7} style={compactStyles.iconBtn}>
                 <Ionicons
@@ -218,18 +264,27 @@ export const StrikeCard = React.memo(function StrikeCard({
         </View>
       </View>
 
-      {/* Row 4: IV / POP / Annualized boxes */}
+      {/* Row 4: IV / POP / Annualized boxes with InfoTooltips */}
       <View style={styles.boxRow}>
         <View style={[styles.metricBox, { backgroundColor: colors.background, borderColor: colors.border }]}>
-          <Text style={[styles.boxLabel, { color: colors.textMuted }]}>IV</Text>
+          <View style={styles.boxLabelRow}>
+            <Text style={[styles.boxLabel, { color: colors.textMuted }]}>IV</Text>
+            <InfoTooltip text="Higher IV = more premium" />
+          </View>
           <Text style={[styles.boxValue, { color: colors.gold }]}>{(entry.iv ?? 0).toFixed(1)}%</Text>
         </View>
         <View style={[styles.metricBox, { backgroundColor: colors.background, borderColor: colors.border }]}>
-          <Text style={[styles.boxLabel, { color: colors.textMuted }]}>POP</Text>
+          <View style={styles.boxLabelRow}>
+            <Text style={[styles.boxLabel, { color: colors.textMuted }]}>POP</Text>
+            <InfoTooltip text="Chance of keeping premium" />
+          </View>
           <Text style={[styles.boxValue, { color: popColor }]}>{(entry.pop ?? 0).toFixed(1)}%</Text>
         </View>
         <View style={[styles.metricBox, { backgroundColor: colors.background, borderColor: colors.border }]}>
-          <Text style={[styles.boxLabel, { color: colors.textMuted }]}>Ann</Text>
+          <View style={styles.boxLabelRow}>
+            <Text style={[styles.boxLabel, { color: colors.textMuted }]}>Ann</Text>
+            <InfoTooltip text="Annualized return if held" />
+          </View>
           <Text style={[styles.boxValue, { color: colors.accent }]}>{(entry.annualized ?? 0).toFixed(1)}%</Text>
         </View>
       </View>
@@ -249,25 +304,23 @@ export const StrikeCard = React.memo(function StrikeCard({
 
       {/* Row 6: Action buttons */}
       <View style={styles.actionsRow}>
+        {/* Compare toggle — small icon */}
         <TouchableOpacity
           style={[
-            styles.actionBtn,
+            styles.compareIconBtn,
             {
-              backgroundColor: isChecked ? colors.accent : colors.background,
-              borderColor: isChecked ? colors.accent : colors.border,
+              backgroundColor: isInCompare ? colors.accent + '18' : colors.background,
+              borderColor: isInCompare ? colors.accent : colors.border,
             },
           ]}
-          onPress={onToggleCompare}
+          onPress={toggleCompare}
           activeOpacity={0.7}
         >
-          <Text
-            style={[
-              styles.actionBtnText,
-              { color: isChecked ? '#fff' : colors.textMuted },
-            ]}
-          >
-            {isChecked ? '\u2611 Compare' : '\u2610 Compare'}
-          </Text>
+          <Ionicons
+            name={isInCompare ? 'checkmark-circle' : 'add-circle-outline'}
+            size={20}
+            color={isInCompare ? colors.accent : colors.textMuted}
+          />
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -336,16 +389,21 @@ const compactStyles = StyleSheet.create({
   metric: {
     fontSize: 11,
     fontWeight: '600',
+  },
+  metricRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     flex: 1,
+    gap: 2,
   },
   actions: {
     flexDirection: 'row',
-    gap: 6,
+    gap: 2,
   },
   iconBtn: {
-    padding: 10,
-    minWidth: 44,
-    minHeight: 44,
+    padding: 8,
+    minWidth: 40,
+    minHeight: 40,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -418,10 +476,15 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     alignItems: 'center',
   },
+  boxLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    marginBottom: 2,
+  },
   boxLabel: {
     fontSize: 11,
     fontWeight: '600',
-    marginBottom: 2,
   },
   boxValue: {
     fontSize: 16,
@@ -439,6 +502,16 @@ const styles = StyleSheet.create({
   actionsRow: {
     flexDirection: 'row',
     gap: 10,
+  },
+  compareIconBtn: {
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 44,
+    minWidth: 44,
   },
   actionBtn: {
     flex: 1,

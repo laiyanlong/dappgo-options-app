@@ -8,6 +8,7 @@ import {
   Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { useBacktestStore } from '../../src/store/backtest-store';
 import { useTheme } from '../../src/theme';
 import { typography } from '../../src/theme/typography';
@@ -430,6 +431,15 @@ export default function DashboardScreen() {
       title="Dashboard"
       subtitle="Live market data & model verdict"
       onRefresh={onRefresh}
+      headerRight={
+        <TouchableOpacity
+          onPress={() => router.push('/glossary')}
+          activeOpacity={0.7}
+          style={{ padding: 8, minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' }}
+        >
+          <Ionicons name="help-circle-outline" size={24} color={colors.textMuted} />
+        </TouchableOpacity>
+      }
     >
       {/* ── Last Updated ── */}
       <View style={{ marginBottom: spacing.lg }}>

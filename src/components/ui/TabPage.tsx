@@ -28,6 +28,8 @@ interface TabPageProps {
   contentContainerStyle?: StyleProp<ViewStyle>;
   /** Whether to use ScrollView (true, default) or plain View */
   scrollable?: boolean;
+  /** Optional element rendered at the right side of the header */
+  headerRight?: React.ReactNode;
 }
 
 /**
@@ -43,6 +45,7 @@ export function TabPage({
   style,
   contentContainerStyle,
   scrollable = true,
+  headerRight,
 }: TabPageProps) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
@@ -59,11 +62,14 @@ export function TabPage({
   }, [onRefresh]);
 
   const headerContent = (
-    <View style={styles.header}>
-      <Text style={[styles.title, { color: colors.textHeading }]}>{title}</Text>
-      {subtitle != null && (
-        <Text style={[styles.subtitle, { color: colors.textMuted }]}>{subtitle}</Text>
-      )}
+    <View style={styles.headerRow}>
+      <View style={styles.header}>
+        <Text style={[styles.title, { color: colors.textHeading }]}>{title}</Text>
+        {subtitle != null && (
+          <Text style={[styles.subtitle, { color: colors.textMuted }]}>{subtitle}</Text>
+        )}
+      </View>
+      {headerRight}
     </View>
   );
 
@@ -113,7 +119,7 @@ export function TabPage({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create<Record<string, any>>({
   container: {
     flex: 1,
     padding: 16,
@@ -121,8 +127,14 @@ const styles = StyleSheet.create({
   contentContainer: {
     paddingBottom: 24,
   },
-  header: {
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
     marginBottom: 16,
+  },
+  header: {
+    flex: 1,
   },
   title: {
     fontSize: 28,
