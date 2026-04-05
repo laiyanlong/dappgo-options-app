@@ -535,7 +535,6 @@ const styles = StyleSheet.create<Record<string, any>>({
   },
   // Ticker chips
   tickerRow: {
-    maxHeight: 56,
     marginBottom: 12,
   },
   tickerContent: {
@@ -569,15 +568,15 @@ const styles = StyleSheet.create<Record<string, any>>({
   },
   // Expiry tabs
   expiryScroll: {
-    maxHeight: 48,
-    marginBottom: 4,
+    marginBottom: 8,
   },
   expiryContent: {
     paddingHorizontal: 16,
-    gap: 4,
+    gap: 6,
+    paddingVertical: 4,
   },
   expiryTab: {
-    paddingHorizontal: 14,
+    paddingHorizontal: 16,
     paddingVertical: 10,
     alignItems: 'center',
   },

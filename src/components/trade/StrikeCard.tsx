@@ -147,13 +147,13 @@ export function StrikeCard({
               <TouchableOpacity onPress={toggleWatchlist} activeOpacity={0.7} style={compactStyles.iconBtn}>
                 <Ionicons
                   name={isInWatchlist ? 'heart' : 'heart-outline'}
-                  size={14}
+                  size={22}
                   color={isInWatchlist ? colors.negative : colors.textMuted}
                 />
               </TouchableOpacity>
             )}
             <TouchableOpacity onPress={onBacktest} activeOpacity={0.7} style={compactStyles.iconBtn}>
-              <Ionicons name="play" size={14} color={colors.accent} />
+              <Ionicons name="play" size={20} color={colors.accent} />
             </TouchableOpacity>
           </View>
         </View>
@@ -293,7 +293,7 @@ export function StrikeCard({
           >
             <Ionicons
               name={isInWatchlist ? 'heart' : 'heart-outline'}
-              size={16}
+              size={22}
               color={isInWatchlist ? colors.negative : colors.textMuted}
             />
           </TouchableOpacity>
@@ -341,7 +341,11 @@ const compactStyles = StyleSheet.create({
     gap: 6,
   },
   iconBtn: {
-    padding: 4,
+    padding: 10,
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
 
@@ -436,21 +440,25 @@ const styles = StyleSheet.create({
   },
   actionBtn: {
     flex: 1,
-    paddingVertical: 8,
-    borderRadius: 8,
+    paddingVertical: 12,
+    borderRadius: 10,
     borderWidth: 1,
     alignItems: 'center',
+    minHeight: 44,
+    justifyContent: 'center',
   },
   actionBtnText: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: '700',
   },
   watchlistBtn: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 10,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    minHeight: 44,
+    minWidth: 44,
   },
 });

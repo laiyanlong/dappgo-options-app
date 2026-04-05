@@ -82,6 +82,7 @@ function computeRating(r: BacktestResult): number {
 // ── Main Screen ──
 export default function BacktestScreen() {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const tickers = useSettingsStore((s) => s.tickers);
   const {
     mode,
@@ -238,7 +239,7 @@ export default function BacktestScreen() {
   return (
     <ScrollView
       style={[styles.container, { backgroundColor: colors.background }]}
-      contentContainerStyle={styles.contentContainer}
+      contentContainerStyle={[styles.contentContainer, { paddingTop: insets.top + 8 }]}
     >
       {/* ── Header ── */}
       <View style={styles.header}>
