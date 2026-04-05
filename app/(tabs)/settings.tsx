@@ -445,6 +445,63 @@ export default function SettingsScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* ── Reset All Data ── */}
+        <TouchableOpacity
+          onPress={() => {
+            Alert.alert(
+              'Reset All Data',
+              'This will clear all cached data, backtest history, and watchlist. Continue?',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Reset',
+                  style: 'destructive',
+                  onPress: async () => {
+                    try {
+                      await AsyncStorage.clear();
+                      // Reset all in-memory stores
+                      useAppStore.setState({
+                        quotes: {},
+                        lastQuoteUpdate: 0,
+                        reportDates: [],
+                        reports: {},
+                        latestReportDate: null,
+                        dashboardData: null,
+                        matrices: {},
+                        tslaMatrix: null,
+                        isLoadingQuotes: false,
+                        isLoadingReports: false,
+                        isLoadingDashboard: false,
+                      });
+                      // Reset backtest store
+                      useBacktestStore.setState({
+                        results: [],
+                        savedResults: [],
+                        portfolio: [],
+                        mode: 'simple',
+                        simpleInput: { symbol: 'TSLA', strategy: 'sell_put', otmPct: 5, period: '6mo' },
+                        pendingAutoRun: false,
+                      });
+                      // Reset watchlist store
+                      useWatchlistStore.getState().clearAll();
+                      setCacheKeyCount(0);
+                      Alert.alert('Done', 'All data has been cleared.');
+                    } catch (e: any) {
+                      Alert.alert('Error', e.message ?? 'Failed to reset data');
+                    }
+                  },
+                },
+              ]
+            );
+          }}
+          accessibilityRole="button"
+          accessibilityLabel="Reset all data"
+          style={[styles.resetBtn, { borderColor: colors.negative }]}
+        >
+          <Ionicons name="warning-outline" size={18} color={colors.negative} style={{ marginRight: 8 }} />
+          <Text style={[styles.resetBtnText, { color: colors.negative }]}>Reset All Data</Text>
+        </TouchableOpacity>
+
         {/* ── About ── */}
         <Text style={[styles.sectionHeader, { color: colors.textMuted }]}>ABOUT</Text>
         <Card>
@@ -488,19 +545,19 @@ const styles = StyleSheet.create<Record<string, any>>({
   profileName: { fontSize: 17, fontWeight: '700' },
   profileSub: { fontSize: 13, marginTop: 2 },
   inputRow: { marginTop: 8 },
-  inputLabel: { fontSize: 12, fontWeight: '600', marginBottom: 4 },
-  input: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, fontSize: 14 },
+  inputLabel: { fontSize: 13, fontWeight: '600', marginBottom: 4 },
+  input: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: 16, minHeight: 44 },
   keyRow: { flexDirection: 'row', alignItems: 'center' },
-  subLabel: { fontSize: 12, fontWeight: '600', marginBottom: 6 },
+  subLabel: { fontSize: 13, fontWeight: '600', marginBottom: 6 },
   tickerList: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
-  tickerChip: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1 },
-  tickerText: { fontSize: 13, fontWeight: '600' },
+  tickerChip: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 20, borderWidth: 1, minHeight: 44 },
+  tickerText: { fontSize: 14, fontWeight: '600' },
   addTickerRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  addInput: { flex: 1, borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, fontSize: 14 },
-  addBtn: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  addInput: { flex: 1, borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: 16, minHeight: 44 },
+  addBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   optionRow: { flexDirection: 'row', gap: 8 },
-  optionBtn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, borderWidth: 1 },
-  optionText: { fontSize: 13, fontWeight: '600' },
+  optionBtn: { paddingHorizontal: 16, paddingVertical: 11, borderRadius: 8, borderWidth: 1, minHeight: 44, justifyContent: 'center' },
+  optionText: { fontSize: 14, fontWeight: '600' },
   switchRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8 },
   switchLabel: { flex: 1, fontSize: 15 },
   divider: { height: 1, marginLeft: 32, marginVertical: 4 },
@@ -518,4 +575,16 @@ const styles = StyleSheet.create<Record<string, any>>({
     borderRadius: 10,
   },
   actionBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  resetBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    marginTop: 16,
+    marginBottom: 4,
+    minHeight: 44,
+  },
+  resetBtnText: { fontWeight: '700', fontSize: 15 },
 });

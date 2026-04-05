@@ -35,6 +35,7 @@ import {
 } from '../../src/data/sample-prices';
 import { formatDollar } from '../../src/utils/format';
 import { backtestToShareText, backtestToCsv } from '../../src/utils/export';
+import { EmptyState } from '../../src/components/ui/EmptyState';
 import type { BacktestInput, BacktestResult } from '../../src/utils/types';
 
 // Enable LayoutAnimation on Android
@@ -634,6 +635,15 @@ export default function BacktestScreen() {
         </>
       )}
 
+      {/* ── Empty state when no results yet ── */}
+      {results.length === 0 && savedResults.length === 0 && !computing && (
+        <EmptyState
+          emoji={'\uD83D\uDCC8'}
+          message="Run Your First Backtest"
+          hint={'Choose a ticker and strategy above,\nthen tap "Run Backtest" to see results.\n\nTip: Start with TSLA Sell Put 5% OTM\nfor the most liquid options.'}
+        />
+      )}
+
       {/* ═══════════════ RESULTS SECTION ═══════════════ */}
       {results.length > 0 && (
         <>
@@ -1207,33 +1217,41 @@ const styles = StyleSheet.create<Record<string, any>>({
     paddingBottom: 40,
   },
   modalTitle: { fontSize: 20, fontWeight: '700', marginBottom: 16 },
-  modalLabel: { fontSize: 12, fontWeight: '600', marginTop: 12, marginBottom: 4 },
+  modalLabel: { fontSize: 13, fontWeight: '600', marginTop: 12, marginBottom: 4 },
   input: {
     borderWidth: 1,
     borderRadius: 10,
     paddingHorizontal: 14,
-    paddingVertical: 10,
-    fontSize: 15,
+    paddingVertical: 11,
+    fontSize: 16,
+    // 44pt minimum
+    minHeight: 44,
   },
   modalBtns: { flexDirection: 'row', gap: 12, marginTop: 20 },
   modalCancelBtn: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: 13,
     borderRadius: 10,
     borderWidth: 1,
     alignItems: 'center',
+    // 44pt touch target
+    minHeight: 44,
+    justifyContent: 'center',
   },
   modalConfirmBtn: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: 13,
     borderRadius: 10,
     alignItems: 'center',
+    // 44pt touch target
+    minHeight: 44,
+    justifyContent: 'center',
   },
 
   // Results
   divider: { height: 1, marginVertical: 20 },
   resultsTitle: { fontSize: 22, fontWeight: '700', marginBottom: 4 },
-  simNote: { fontSize: 12, fontStyle: 'italic', marginBottom: 16 },
+  simNote: { fontSize: 13, fontStyle: 'italic', marginBottom: 16 },
 
   // Best pick banner
   bestBanner: {
@@ -1252,7 +1270,7 @@ const styles = StyleSheet.create<Record<string, any>>({
     marginBottom: 16,
   },
   summaryTicker: { fontSize: 20, fontWeight: '800' },
-  summaryStrategy: { fontSize: 12, marginTop: 2 },
+  summaryStrategy: { fontSize: 13, marginTop: 2 },
 
   // Hero win rate circle
   heroCircle: {
@@ -1275,7 +1293,7 @@ const styles = StyleSheet.create<Record<string, any>>({
     alignItems: 'center',
   } as const,
   metricCardLabel: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '600',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -1286,7 +1304,7 @@ const styles = StyleSheet.create<Record<string, any>>({
     fontWeight: '800',
   },
 
-  // Metrics grid (legacy / comparison table)
+  // Metrics grid (history detail modal)
   metricsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -1294,10 +1312,10 @@ const styles = StyleSheet.create<Record<string, any>>({
   },
   metricCell: {
     width: '25%',
-    paddingVertical: 8,
+    paddingVertical: 10,
     alignItems: 'center',
   } as const,
-  metricLabel: { fontSize: 10, fontWeight: '600', textTransform: 'uppercase', marginBottom: 4 },
+  metricLabel: { fontSize: 11, fontWeight: '600', textTransform: 'uppercase', marginBottom: 4 },
   metricValue: { fontSize: 15, fontWeight: '700' },
 
   // P&L chart
@@ -1306,22 +1324,22 @@ const styles = StyleSheet.create<Record<string, any>>({
     paddingTop: 12,
     borderTopWidth: StyleSheet.hairlineWidth,
   },
-  curveLabel: { fontSize: 10, fontWeight: '600', letterSpacing: 1, marginBottom: 8 },
+  curveLabel: { fontSize: 11, fontWeight: '600', letterSpacing: 1, marginBottom: 8 },
 
   // Comparison table
   tableRow: {
     flexDirection: 'row',
     borderBottomWidth: StyleSheet.hairlineWidth,
-    paddingVertical: 8,
+    paddingVertical: 10,
     alignItems: 'center',
   },
-  tableHeader: { fontSize: 10, fontWeight: '700', textTransform: 'uppercase' },
-  tableCell: { fontSize: 12, fontWeight: '500' },
-  tableCol: { width: 65, paddingHorizontal: 4 },
-  tableColWide: { width: 110, paddingHorizontal: 4 },
+  tableHeader: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase' },
+  tableCell: { fontSize: 13, fontWeight: '500' },
+  tableCol: { width: 68, paddingHorizontal: 4 },
+  tableColWide: { width: 120, paddingHorizontal: 4 },
   tableBold: { fontWeight: '800' },
 
-  // Action row
+  // Action row — 44pt touch targets
   actionRow: {
     flexDirection: 'row',
     gap: 12,
@@ -1332,8 +1350,10 @@ const styles = StyleSheet.create<Record<string, any>>({
     paddingVertical: 14,
     borderRadius: 12,
     alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 44,
   },
-  actionBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  actionBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
 
   // History section
   historyCardRow: {
@@ -1347,14 +1367,14 @@ const styles = StyleSheet.create<Record<string, any>>({
     marginBottom: 4,
   },
   historySymbol: { fontSize: 16, fontWeight: '800' },
-  historyStrategy: { fontSize: 12, fontWeight: '600' },
+  historyStrategy: { fontSize: 13, fontWeight: '600' },
   historyMetrics: {
     flexDirection: 'row',
     gap: 16,
     marginBottom: 2,
   },
-  historyMetric: { fontSize: 12 },
-  historySavedAt: { fontSize: 10, marginTop: 2 },
+  historyMetric: { fontSize: 13 },
+  historySavedAt: { fontSize: 11, marginTop: 2 },
 
   // History detail modal
   historyModalContent: {

@@ -308,7 +308,10 @@ export default function ReportsScreen() {
                 })}
               </View>
             ) : (
-              <ActivityIndicator size="small" color={colors.accent} style={{ marginVertical: 8 }} />
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginVertical: 8 }}>
+                <ActivityIndicator size="small" color={colors.accent} />
+                <Text style={{ color: colors.textMuted, fontSize: 12, marginLeft: 8 }}>Loading...</Text>
+              </View>
             )}
 
             {/* Best trade inline */}
@@ -331,6 +334,7 @@ export default function ReportsScreen() {
       <View style={[styles.center, { backgroundColor: colors.background }]}>
         <ActivityIndicator size="large" color={colors.accent} />
         <Text style={[styles.loadingText, { color: colors.textMuted }]}>Loading reports...</Text>
+        <Text style={[styles.loadingHint, { color: colors.textMuted }]}>Fetching daily options analysis</Text>
       </View>
     );
   }
@@ -533,7 +537,8 @@ const styles = StyleSheet.create<Record<string, any>>({
   },
 
   // States
-  loadingText: { fontSize: 15, marginTop: 12 },
+  loadingText: { fontSize: 15, marginTop: 12, fontWeight: '600' },
+  loadingHint: { fontSize: 13, marginTop: 4, opacity: 0.7 },
   errorText: { fontSize: 16, textAlign: 'center', marginBottom: 16 },
   // 44pt touch target for retry button
   retryBtn: { paddingHorizontal: 28, paddingVertical: 12, borderRadius: 10, minHeight: 44, justifyContent: 'center' },

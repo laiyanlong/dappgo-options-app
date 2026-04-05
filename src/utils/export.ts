@@ -17,25 +17,28 @@ function strategyLabel(strategy: string): string {
 
 /**
  * Generate a shareable plain-text summary of backtest results.
+ * Clean, emoji-rich format designed for sharing on social media and messaging.
  */
 export function backtestToShareText(result: BacktestResult): string {
   const { input } = result;
   const otmStr = input.otmPct ? `${input.otmPct}% OTM` : '';
   const parts = [input.symbol, strategyLabel(input.strategy), otmStr, input.period].filter(Boolean);
+  const sep = '\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501';
+  const pnlSign = result.totalPnl >= 0 ? '+' : '';
+  const ddSign = result.maxDrawdown >= 0 ? '-' : '';
 
   const lines = [
-    'DappGo Options Backtest Results',
-    '\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501',
+    '\uD83D\uDCCA DappGo Options Backtest',
+    sep,
     parts.join(' | '),
-    '\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501',
-    `Win Rate: ${result.winRate}%`,
-    `Total P&L: $${result.totalPnl.toFixed(2)}`,
-    `Sharpe Ratio: ${result.sharpe.toFixed(2)}`,
-    `Max Drawdown: $${result.maxDrawdown.toFixed(2)}`,
-    `Profit Factor: ${result.profitFactor >= 999 ? 'INF' : result.profitFactor.toFixed(1)}`,
-    `Trades: ${result.trades}`,
-    '',
-    'Powered by DappGo Options',
+    sep,
+    `\u2705 Win Rate: ${result.winRate}%`,
+    `\uD83D\uDCB0 Total P&L: ${pnlSign}$${result.totalPnl.toFixed(2)}`,
+    `\uD83D\uDCC8 Sharpe: ${result.sharpe.toFixed(2)}`,
+    `\uD83D\uDCC9 Max DD: ${ddSign}$${Math.abs(result.maxDrawdown).toFixed(2)}`,
+    `\u2696\uFE0F Profit Factor: ${result.profitFactor >= 999 ? 'INF' : result.profitFactor.toFixed(1)}`,
+    `\uD83D\uDD22 Trades: ${result.trades}`,
+    sep,
     'dappgo.com',
   ];
 

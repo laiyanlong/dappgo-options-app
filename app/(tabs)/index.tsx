@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback, useState, useMemo } from 'react';
+import React, { useEffect, useCallback, useState, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,7 @@ import {
   FlatList,
   TouchableOpacity,
   Platform,
+  Animated,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -35,6 +36,64 @@ import { lightHaptic } from '../../src/utils/haptics';
 import { useWatchlistStore } from '../../src/store/watchlist-store';
 import type { WatchlistItem } from '../../src/store/watchlist-store';
 import type { TickerVerdict } from '../../src/utils/types';
+
+// ── Refresh Banner ──
+
+function RefreshBanner({ visible }: { visible: boolean }) {
+  const opacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (visible) {
+      Animated.sequence([
+        Animated.timing(opacity, { toValue: 1, duration: 200, useNativeDriver: true }),
+        Animated.delay(1500),
+        Animated.timing(opacity, { toValue: 0, duration: 300, useNativeDriver: true }),
+      ]).start();
+    }
+  }, [visible, opacity]);
+
+  if (!visible) return null;
+
+  return (
+    <Animated.View style={[styles.refreshBanner, { opacity }]}>
+      <Text style={styles.refreshBannerText}>{'\u2713'} Data updated</Text>
+    </Animated.View>
+  );
+}
+
+// ── Market Status Helper ──
+
+function getMarketStatus(): { label: string; isOpen: boolean } {
+  const now = new Date();
+  const etOffset = -5; // ET is UTC-5 (EST); for simplicity we ignore DST
+  const utcHour = now.getUTCHours();
+  const utcMin = now.getUTCMinutes();
+  const etHour = (utcHour + etOffset + 24) % 24;
+  const etMin = utcMin;
+  const day = now.getUTCDay(); // 0=Sun, 6=Sat
+  const isWeekday = day >= 1 && day <= 5;
+  const minutesSinceMidnight = etHour * 60 + etMin;
+  const marketOpen = 9 * 60 + 30; // 9:30
+  const marketClose = 16 * 60; // 16:00
+  const isOpen = isWeekday && minutesSinceMidnight >= marketOpen && minutesSinceMidnight < marketClose;
+  return { label: isOpen ? 'Open' : 'Closed', isOpen };
+}
+
+// ── Timing Data Types ──
+
+interface TimingEntry {
+  action: string;
+  combined_score: number;
+  overall_recommendation: string;
+  wait_until?: string;
+}
+
+const TIMING_ACTION_COLORS: Record<string, { emoji: string; color: string }> = {
+  SELL_NOW: { emoji: '\uD83D\uDFE2', color: '#2dd4a8' },
+  BUY_NOW: { emoji: '\uD83D\uDD35', color: '#5b6cf7' },
+  WAIT: { emoji: '\uD83D\uDFE1', color: '#e8b84b' },
+  NEUTRAL: { emoji: '\u26AA', color: '#6b7084' },
+};
 
 // ── Type helpers for dashboard JSON ──
 
@@ -186,6 +245,8 @@ export default function DashboardScreen() {
   const setMatrix = useAppStore((s) => s.setMatrix);
 
   const [error, setError] = useState<string | null>(null);
+  const [showRefreshBanner, setShowRefreshBanner] = useState(false);
+  const refreshBannerKey = useRef(0);
 
   const loadData = useCallback(async () => {
     try {
@@ -225,6 +286,11 @@ export default function DashboardScreen() {
 
   const onRefresh = useCallback(async () => {
     await loadData();
+    // Show success banner briefly
+    setShowRefreshBanner(false);
+    refreshBannerKey.current += 1;
+    requestAnimationFrame(() => setShowRefreshBanner(true));
+    setTimeout(() => setShowRefreshBanner(false), 2200);
   }, [loadData]);
 
   // ── Parse dashboard data (memoized) ──
@@ -261,6 +327,19 @@ export default function DashboardScreen() {
       };
     });
   }, [dd, livePrices]);
+
+  // Timing data from dashboard
+  const timingData: Record<string, TimingEntry> = useMemo(
+    () => (dd?.timing as Record<string, TimingEntry>) ?? {},
+    [dd],
+  );
+  const timingTickers = useMemo(() => Object.keys(timingData), [timingData]);
+
+  // Market status
+  const marketStatus = useMemo(() => getMarketStatus(), []);
+
+  // Reports count
+  const reportsCount = useAppStore((s) => Object.keys(s.reports).length);
 
   // ── Ticker tape data (memoized to avoid re-creating on every render) ──
   const tickerTapeData = useMemo(
@@ -441,6 +520,9 @@ export default function DashboardScreen() {
         </TouchableOpacity>
       }
     >
+      {/* ── Refresh Success Banner ── */}
+      <RefreshBanner key={refreshBannerKey.current} visible={showRefreshBanner} />
+
       {/* ── Last Updated ── */}
       <View style={{ marginBottom: spacing.lg }}>
         <LastUpdated />
@@ -474,6 +556,21 @@ export default function DashboardScreen() {
           </View>
         </FadeIn>
       )}
+
+      {/* ── Quick Stats Row ── */}
+      <View style={styles.quickStatsRow}>
+        <Text style={[styles.quickStatText, { color: colors.textMuted }]}>
+          {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+        </Text>
+        <Text style={[styles.quickStatDot, { color: colors.border }]}>{'\u00B7'}</Text>
+        <Text style={[styles.quickStatText, { color: marketStatus.isOpen ? colors.positive : colors.textMuted }]}>
+          Market {marketStatus.label}
+        </Text>
+        <Text style={[styles.quickStatDot, { color: colors.border }]}>{'\u00B7'}</Text>
+        <Text style={[styles.quickStatText, { color: colors.textMuted }]}>
+          {reportsCount} report{reportsCount !== 1 ? 's' : ''}
+        </Text>
+      </View>
 
       {/* ── Market Summary ── */}
       {dd && (
@@ -531,6 +628,37 @@ export default function DashboardScreen() {
                 </View>
               );
             })() : null}
+          </Card>
+        </View>
+      )}
+
+      {/* ── Best Time to Trade ── */}
+      {timingTickers.length > 0 && (
+        <View style={styles.section}>
+          <SectionHeader title={'\u23F0 Best Time to Trade'} />
+          <Card>
+            {timingTickers.map((ticker, idx) => {
+              const entry = timingData[ticker];
+              const actionStyle = TIMING_ACTION_COLORS[entry.action] ?? TIMING_ACTION_COLORS.NEUTRAL;
+              return (
+                <View key={ticker}>
+                  {idx > 0 && <View style={[styles.timingDivider, { backgroundColor: colors.border }]} />}
+                  <View style={styles.timingRow}>
+                    <Text style={[styles.timingTicker, { color: colors.gold }]}>{ticker}</Text>
+                    <Text style={{ fontSize: 13 }}>{actionStyle.emoji}</Text>
+                    <Text style={[styles.timingAction, { color: actionStyle.color }]}>
+                      {entry.action.replace('_', ' ')}
+                    </Text>
+                    <Text style={[styles.timingRec, { color: colors.textMuted }]} numberOfLines={1}>
+                      {entry.overall_recommendation}
+                    </Text>
+                    <Text style={[styles.timingScore, { color: colors.textMuted }]}>
+                      ({entry.combined_score})
+                    </Text>
+                  </View>
+                </View>
+              );
+            })}
           </Card>
         </View>
       )}
@@ -596,6 +724,70 @@ export default function DashboardScreen() {
 // ── Styles ──
 
 const styles = StyleSheet.create<Record<string, any>>({
+  // Refresh banner
+  refreshBanner: {
+    backgroundColor: '#2dd4a820',
+    borderRadius: borderRadius.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    alignItems: 'center',
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: '#2dd4a840',
+  },
+  refreshBannerText: {
+    color: '#2dd4a8',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+
+  // Quick stats row
+  quickStatsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  quickStatText: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  quickStatDot: {
+    fontSize: 14,
+    marginHorizontal: 8,
+  },
+
+  // Timing section
+  timingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.xs,
+    gap: 6,
+  },
+  timingDivider: {
+    height: StyleSheet.hairlineWidth,
+    marginVertical: 2,
+  },
+  timingTicker: {
+    fontSize: 13,
+    fontWeight: '700',
+    width: 44,
+  },
+  timingAction: {
+    fontSize: 12,
+    fontWeight: '700',
+    width: 64,
+  },
+  timingRec: {
+    flex: 1,
+    fontSize: 12,
+  },
+  timingScore: {
+    fontSize: 11,
+    fontWeight: '500',
+  },
+
   loadingText: {
     ...typography.body,
     marginTop: spacing.md,

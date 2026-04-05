@@ -25,6 +25,7 @@ import { SegmentedControl } from '../../src/components/ui/SegmentedControl';
 import { SectionHeader } from '../../src/components/ui/SectionHeader';
 import { StrikeCard, calculateStarRating } from '../../src/components/trade/StrikeCard';
 import { formatDollar, formatDate, daysUntil } from '../../src/utils/format';
+import { EmptyState } from '../../src/components/ui/EmptyState';
 import type { OptionEntry, StrikeComparison } from '../../src/utils/types';
 
 // ── Supported tickers (extend as matrix data grows) ──
@@ -275,7 +276,10 @@ export default function MatrixScreen() {
       {/* ── Selected ticker price row — fixed height prevents layout shift ── */}
       <View style={styles.priceRow}>
         {loading ? (
-          <ActivityIndicator size="small" color={colors.accent} style={{ marginRight: 8 }} />
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 8 }}>
+            <ActivityIndicator size="small" color={colors.accent} />
+            <Text style={{ color: colors.textMuted, fontSize: 12, marginLeft: 6 }}>Loading...</Text>
+          </View>
         ) : (
           <Text style={[styles.priceRowTicker, { color: colors.textHeading }]}>
             {selectedTicker}
@@ -371,26 +375,25 @@ export default function MatrixScreen() {
   const renderListEmpty = useCallback(() => {
     if (loading) {
       return (
-        <View style={styles.emptyInList}>
-          <ActivityIndicator size="large" color={colors.accent} />
-          <Text style={[styles.emptySubtitle, { color: colors.textMuted, marginTop: 16 }]}>
-            Loading options data...
-          </Text>
-        </View>
+        <EmptyState
+          emoji={'\uD83D\uDCCA'}
+          message="Loading Options Data..."
+          hint={'Fetching live options chains\nfrom the market.'}
+        />
       );
     }
     if (!matrix) {
       return (
         <View style={styles.emptyInList}>
-          <Text style={[styles.emptyIcon, { color: colors.textMuted }]}>{'\u26A0'}</Text>
-          <Text style={[styles.emptyTitle, { color: colors.textHeading }]}>
-            No Matrix Data
-          </Text>
-          <Text style={[styles.emptySubtitle, { color: colors.textMuted }]}>
-            {selectedTicker === 'TSLA'
-              ? 'Data loading failed. Check your connection.'
-              : `${selectedTicker} matrix coming soon.\nCurrently only TSLA has live options data.\nSelect TSLA to view strike comparison.`}
-          </Text>
+          <EmptyState
+            emoji={'\u26A0\uFE0F'}
+            message="No Matrix Data"
+            hint={
+              selectedTicker === 'TSLA'
+                ? 'Data loading failed. Check your connection.'
+                : `${selectedTicker} matrix coming soon.\nCurrently only TSLA has live options data.\nSelect TSLA to view strike comparison.`
+            }
+          />
           <TouchableOpacity
             style={[styles.retryBtn, { backgroundColor: colors.accent }]}
             onPress={() => {
@@ -413,25 +416,23 @@ export default function MatrixScreen() {
     }
     // Matrix loaded but no strikes for this expiry/type
     return (
-      <View style={styles.emptyInList}>
-        <Text style={[styles.noStrikesText, { color: colors.textMuted }]}>
-          No {typeIndex === 0 ? 'put' : 'call'} data for this expiry
-        </Text>
-      </View>
+      <EmptyState
+        emoji={'\uD83D\uDCCB'}
+        message={`No ${typeIndex === 0 ? 'put' : 'call'} data for this expiry`}
+      />
     );
   }, [loading, matrix, selectedTicker, colors, typeIndex, setDashboardData, setMatrix]);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
-      {/* ── Single FlatList with stable ListHeaderComponent ──
-          Header always renders regardless of data state.
-          Only the rows below it change (empty vs strikes).
-          This eliminates layout shift when switching tickers. */}
+      {/* ── Sticky header — never scrolls away ── */}
+      {renderListHeader()}
+
+      {/* ── Scrollable strikes list ── */}
       <FlatList
         data={strikes}
         renderItem={renderStrikeCard}
         keyExtractor={keyExtractor}
-        ListHeaderComponent={renderListHeader}
         ListEmptyComponent={renderListEmpty}
         contentContainerStyle={[
           styles.listContent,

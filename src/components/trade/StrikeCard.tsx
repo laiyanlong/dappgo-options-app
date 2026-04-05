@@ -466,7 +466,7 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   metricValue: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '600',
   },
   boxRow: {
@@ -502,7 +502,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
   },
   greekText: {
-    fontSize: 12,
+    fontSize: 13,
   },
   actionsRow: {
     flexDirection: 'row',
