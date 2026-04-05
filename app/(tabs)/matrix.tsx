@@ -307,11 +307,11 @@ export default function MatrixScreen() {
               >
                 {ticker}
               </Text>
-              {price != null && (
+              {price != null && active && (
                 <Text
                   style={[
                     styles.tickerPrice,
-                    { color: active ? 'rgba(255,255,255,0.8)' : colors.textMuted },
+                    { color: 'rgba(255,255,255,0.7)' },
                   ]}
                 >
                   {formatDollar(price)}
@@ -558,19 +558,21 @@ const styles = StyleSheet.create<Record<string, any>>({
   tickerChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 18,
+    justifyContent: 'center',
+    paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 24,
     borderWidth: 1,
-    gap: 8,
+    gap: 6,
     minHeight: 44,
+    minWidth: 90,
   },
   tickerSymbol: {
     fontSize: 15,
     fontWeight: '700',
   },
   tickerPrice: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '500',
   },
   // Price change since load
