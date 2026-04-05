@@ -544,11 +544,11 @@ const styles = StyleSheet.create<Record<string, any>>({
   },
   subtitle: {
     fontSize: 13,
-    marginBottom: 4,
+    marginBottom: 12,
   },
   // Ticker chips
   tickerRow: {
-    marginBottom: 16,
+    marginBottom: 18,
   },
   tickerContent: {
     paddingHorizontal: 16,
@@ -606,7 +606,8 @@ const styles = StyleSheet.create<Record<string, any>>({
   // Type toggle
   typeToggle: {
     paddingHorizontal: 16,
-    marginTop: 4,
+    marginTop: 8,
+    marginBottom: 4,
   },
   // Count label
   countLabel: {
