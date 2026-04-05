@@ -27,6 +27,8 @@ import { TickerTape } from '../../src/components/charts/TickerTape';
 import { Card } from '../../src/components/ui/Card';
 import { UpgradePrompt } from '../../src/components/ui/UpgradePrompt';
 import { PoweredByDappGo } from '../../src/components/ui/PoweredByDappGo';
+import { AppVersion } from '../../src/components/ui/AppVersion';
+import { LastUpdated } from '../../src/components/ui/LastUpdated';
 import { FadeIn } from '../../src/components/ui/FadeIn';
 import { WelcomeCard } from '../../src/components/onboarding/WelcomeCard';
 import { lightHaptic } from '../../src/utils/haptics';
@@ -97,6 +99,7 @@ export default function DashboardScreen() {
     isLoadingDashboard,
     setDashboardData,
     setLoading,
+    setNetworkStatus,
   } = useAppStore();
 
   const [error, setError] = useState<string | null>(null);
@@ -110,6 +113,7 @@ export default function DashboardScreen() {
       setLoading('isLoadingDashboard', true);
       const data = await fetchDashboardData(GITHUB_OWNER, GITHUB_REPO);
       setDashboardData(data);
+      setNetworkStatus('online');
       // Store all options matrices (TSLA, AMZN, NVDA)
       const allMatrices = (data as Record<string, unknown>)?.options_matrices as Record<string, unknown> | undefined;
       if (allMatrices) {
@@ -129,10 +133,11 @@ export default function DashboardScreen() {
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Failed to load dashboard data';
       setError(msg);
+      setNetworkStatus('offline');
     } finally {
       setLoading('isLoadingDashboard', false);
     }
-  }, [setDashboardData, setMatrix, setLoading]);
+  }, [setDashboardData, setMatrix, setLoading, setNetworkStatus]);
 
   useEffect(() => {
     loadData();
@@ -320,9 +325,12 @@ export default function DashboardScreen() {
       <Text style={[typography.h1, { color: colors.textHeading, marginBottom: spacing.xs }]}>
         Dashboard
       </Text>
-      <Text style={[typography.bodySmall, { color: colors.textMuted, marginBottom: spacing.lg }]}>
+      <Text style={[typography.bodySmall, { color: colors.textMuted, marginBottom: spacing.xs }]}>
         Live market data & model verdict
       </Text>
+      <View style={{ marginBottom: spacing.lg }}>
+        <LastUpdated />
+      </View>
 
       {/* ── Live Price Cards ── */}
       {livePrices.length > 0 && (
@@ -564,6 +572,7 @@ export default function DashboardScreen() {
 
       {/* ── Footer branding ── */}
       <PoweredByDappGo />
+      <AppVersion />
 
       {/* Bottom spacer for tab bar */}
       <View style={{ height: spacing.xxxl }} />

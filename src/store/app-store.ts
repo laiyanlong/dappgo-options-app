@@ -20,6 +20,9 @@ interface AppState {
   // Legacy alias
   tslaMatrix: StrikeComparison | null;
 
+  // Network status
+  networkStatus: 'online' | 'offline' | 'unknown';
+
   // Loading states
   isLoadingQuotes: boolean;
   isLoadingReports: boolean;
@@ -34,6 +37,7 @@ interface AppState {
   setDashboardData: (data: Record<string, unknown>) => void;
   setMatrix: (symbol: string, matrix: StrikeComparison) => void;
   setTslaMatrix: (matrix: StrikeComparison) => void;
+  setNetworkStatus: (status: 'online' | 'offline' | 'unknown') => void;
   setLoading: (key: 'isLoadingQuotes' | 'isLoadingReports' | 'isLoadingDashboard', value: boolean) => void;
 }
 
@@ -46,6 +50,7 @@ export const useAppStore = create<AppState>()((set) => ({
   dashboardData: null,
   matrices: {},
   tslaMatrix: null,
+  networkStatus: 'unknown',
   isLoadingQuotes: false,
   isLoadingReports: false,
   isLoadingDashboard: false,
@@ -72,5 +77,6 @@ export const useAppStore = create<AppState>()((set) => ({
       tslaMatrix: matrix,
       matrices: { ...s.matrices, TSLA: matrix },
     })),
+  setNetworkStatus: (status) => set({ networkStatus: status }),
   setLoading: (key, value) => set({ [key]: value }),
 }));

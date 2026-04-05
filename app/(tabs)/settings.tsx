@@ -23,6 +23,8 @@ import { PoweredByDappGo } from '../../src/components/ui/PoweredByDappGo';
 import { useSettingsStore } from '../../src/store/settings-store';
 import { useBacktestStore } from '../../src/store/backtest-store';
 import { useWatchlistStore } from '../../src/store/watchlist-store';
+import { watchlistToShareText } from '../../src/utils/export';
+import { AppVersion } from '../../src/components/ui/AppVersion';
 import { useAppStore } from '../../src/store/app-store';
 import { getSecureKey, setSecureKey } from '../../src/data/secure-keys';
 
@@ -405,6 +407,40 @@ export default function SettingsScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* ── Watchlist Export/Import ── */}
+        <View style={styles.actionRow}>
+          <TouchableOpacity
+            onPress={async () => {
+              try {
+                const items = useWatchlistStore.getState().items;
+                const text = watchlistToShareText(items);
+                await Share.share({ message: text, title: 'DappGo Watchlist' });
+              } catch (e: any) {
+                if (e.name !== 'AbortError') {
+                  Alert.alert('Export Error', e.message ?? 'Failed to export watchlist');
+                }
+              }
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Export watchlist"
+            style={[styles.actionBtn, { backgroundColor: colors.accent }]}
+          >
+            <Ionicons name="bookmark-outline" size={18} color="#fff" style={{ marginRight: 8 }} />
+            <Text style={styles.actionBtnText}>Export Watchlist</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => {
+              Alert.alert('Coming Soon', 'Watchlist import will be available in a future update.');
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Import watchlist"
+            style={[styles.actionBtn, { backgroundColor: colors.backgroundAlt, borderColor: colors.border, borderWidth: 1 }]}
+          >
+            <Ionicons name="download-outline" size={18} color={colors.textMuted} style={{ marginRight: 8 }} />
+            <Text style={[styles.actionBtnText, { color: colors.textMuted }]}>Import Watchlist</Text>
+          </TouchableOpacity>
+        </View>
+
         {/* ── About ── */}
         <Text style={[styles.sectionHeader, { color: colors.textMuted }]}>ABOUT</Text>
         <Card>
@@ -431,6 +467,7 @@ export default function SettingsScreen() {
 
         {/* ── Branding ── */}
         <PoweredByDappGo />
+        <AppVersion />
       </ScrollView>
     </KeyboardAvoidingView>
   );

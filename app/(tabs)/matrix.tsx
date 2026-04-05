@@ -318,6 +318,28 @@ export default function MatrixScreen() {
         })}
       </ScrollView>
 
+      {/* ── Price change since load indicator ── */}
+      {(() => {
+        const matrixPrice = matrix?.price;
+        const quotePrice = quotes[selectedTicker]?.price;
+        if (matrixPrice && quotePrice && Math.abs(matrixPrice - quotePrice) >= 0.01) {
+          const diff = quotePrice - matrixPrice;
+          const sign = diff >= 0 ? '+' : '';
+          const diffColor = diff >= 0 ? colors.positive : colors.negative;
+          return (
+            <View style={styles.priceChangeRow}>
+              <Text style={[styles.priceChangeText, { color: colors.textMuted }]}>
+                {selectedTicker} {formatDollar(matrixPrice)} {'\u2192'} {formatDollar(quotePrice)}{' '}
+                <Text style={{ color: diffColor }}>
+                  ({sign}{formatDollar(diff)})
+                </Text>
+              </Text>
+            </View>
+          );
+        }
+        return null;
+      })()}
+
       {/* ── Expiry tabs ── */}
       {expiries.length > 0 && (
         <ScrollView
@@ -536,6 +558,14 @@ const styles = StyleSheet.create<Record<string, any>>({
   tickerPrice: {
     fontSize: 13,
     fontWeight: '500',
+  },
+  // Price change since load
+  priceChangeRow: {
+    paddingHorizontal: 16,
+    marginBottom: 4,
+  },
+  priceChangeText: {
+    fontSize: 12,
   },
   // Expiry tabs
   expiryScroll: {

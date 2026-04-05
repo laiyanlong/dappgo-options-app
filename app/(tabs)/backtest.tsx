@@ -15,6 +15,7 @@ import {
   LayoutAnimation,
   Platform,
   UIManager,
+  Share,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../src/theme';
@@ -33,6 +34,7 @@ import {
   periodToTradingDays,
 } from '../../src/data/sample-prices';
 import { formatDollar } from '../../src/utils/format';
+import { backtestToShareText, backtestToCsv } from '../../src/utils/export';
 import type { BacktestInput, BacktestResult } from '../../src/utils/types';
 
 // Enable LayoutAnimation on Android
@@ -821,13 +823,29 @@ export default function BacktestScreen() {
             >
               <Text style={styles.actionBtnText}>Save to History</Text>
             </TouchableOpacity>
+          </View>
+          <View style={styles.actionRow}>
             <TouchableOpacity
               style={[styles.actionBtn, { backgroundColor: colors.backgroundAlt, borderColor: colors.border, borderWidth: 1 }]}
-              onPress={() => {
-                // Export placeholder: copy-to-clipboard or share
+              onPress={async () => {
+                try {
+                  const text = results.map((r) => backtestToShareText(r)).join('\n\n');
+                  await Share.share({ message: text, title: 'DappGo Backtest Results' });
+                } catch {}
               }}
             >
-              <Text style={[styles.actionBtnText, { color: colors.text }]}>Export</Text>
+              <Text style={[styles.actionBtnText, { color: colors.text }]}>{'\uD83D\uDCF8'} Share Results</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.actionBtn, { backgroundColor: colors.backgroundAlt, borderColor: colors.border, borderWidth: 1 }]}
+              onPress={async () => {
+                try {
+                  const csv = results.map((r) => backtestToCsv(r)).join('\n\n');
+                  await Share.share({ message: csv, title: 'DappGo Backtest CSV' });
+                } catch {}
+              }}
+            >
+              <Text style={[styles.actionBtnText, { color: colors.text }]}>Export CSV</Text>
             </TouchableOpacity>
           </View>
         </>

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -7,7 +7,9 @@ import {
   ActivityIndicator,
   Share,
   StyleSheet,
+  Alert,
 } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTheme } from '../../src/theme';
 import { useAppStore } from '../../src/store/app-store';
@@ -284,6 +286,8 @@ export default function ReportDetailScreen() {
   const [report, setLocalReport] = useState<DailyReport | null>(cachedReport ?? null);
   const [loading, setLoading] = useState(!cachedReport);
   const [error, setError] = useState<string | null>(null);
+  const [linkCopied, setLinkCopied] = useState(false);
+  const linkCopiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── Fetch full report ──
 
@@ -371,12 +375,41 @@ export default function ReportDetailScreen() {
 
   // ── Actions ──
 
+  const handleCopySummary = useCallback(async () => {
+    try {
+      const r = useAppStore.getState().reports[date ?? ''];
+      const lines: string[] = [`Options Report - ${date}`];
+      if (r?.tickers) {
+        for (const t of r.tickers) {
+          const dir = t.changePct >= 0 ? '+' : '';
+          lines.push(`${t.symbol}: $${t.price.toFixed(2)} (${dir}${t.changePct.toFixed(2)}%) | IV ${(t.avgIv ?? 0).toFixed(1)}%`);
+        }
+      }
+      await Clipboard.setStringAsync(lines.join('\n'));
+      Alert.alert('Copied', 'Report summary copied to clipboard.');
+    } catch {
+      // Silent fail
+    }
+  }, [date]);
+
   const handleShare = useCallback(async () => {
     try {
       await Share.share({
         message: `Options Report — ${date}\nhttps://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/blob/main/reports/${date}.md`,
       });
     } catch {}
+  }, [date]);
+
+  const handleCopyLink = useCallback(async () => {
+    try {
+      const url = `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/blob/main/reports/${date}.md`;
+      await Clipboard.setStringAsync(url);
+      setLinkCopied(true);
+      if (linkCopiedTimer.current) clearTimeout(linkCopiedTimer.current);
+      linkCopiedTimer.current = setTimeout(() => setLinkCopied(false), 2000);
+    } catch {
+      // Silent fail
+    }
   }, [date]);
 
   const handleAddToBacktest = useCallback(() => {
@@ -468,10 +501,26 @@ export default function ReportDetailScreen() {
           <Text style={styles.actionBtnText}>+ Add to Backtest</Text>
         </TouchableOpacity>
         <TouchableOpacity
+          onPress={handleCopySummary}
+          style={[styles.actionBtn, { backgroundColor: colors.backgroundAlt, borderWidth: 1, borderColor: colors.border }]}
+        >
+          <Text style={[styles.actionBtnText, { color: colors.textHeading }]}>
+            {'\uD83D\uDCCB'} Copy
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
           onPress={handleShare}
           style={[styles.actionBtn, { backgroundColor: colors.backgroundAlt, borderWidth: 1, borderColor: colors.border }]}
         >
           <Text style={[styles.actionBtnText, { color: colors.textHeading }]}>Share</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={handleCopyLink}
+          style={[styles.actionBtn, { backgroundColor: colors.backgroundAlt, borderWidth: 1, borderColor: linkCopied ? colors.positive : colors.border }]}
+        >
+          <Text style={[styles.actionBtnText, { color: linkCopied ? colors.positive : colors.textHeading }]}>
+            {linkCopied ? 'Copied!' : '\uD83D\uDD17 Link'}
+          </Text>
         </TouchableOpacity>
       </View>
     </View>
