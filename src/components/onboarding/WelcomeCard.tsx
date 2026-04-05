@@ -103,10 +103,17 @@ export function WelcomeCard() {
           renderItem={renderStep}
           keyExtractor={(item) => item.title}
           horizontal
-          pagingEnabled
           scrollEnabled={false}
           showsHorizontalScrollIndicator={false}
+          snapToInterval={CARD_WIDTH}
+          decelerationRate="fast"
+          getItemLayout={(_, index) => ({
+            length: CARD_WIDTH,
+            offset: CARD_WIDTH * index,
+            index,
+          })}
           style={{ flexGrow: 0 }}
+          contentContainerStyle={{ alignItems: 'center' }}
         />
 
         {/* Dots */}
@@ -172,7 +179,8 @@ const styles = StyleSheet.create({
   },
   stepContainer: {
     alignItems: 'center',
-    paddingHorizontal: 16,
+    justifyContent: 'center',
+    paddingHorizontal: 20,
   },
   iconCircle: {
     width: 72,
@@ -186,6 +194,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700',
     marginBottom: 6,
+    textAlign: 'center',
   },
   stepDesc: {
     fontSize: 14,
