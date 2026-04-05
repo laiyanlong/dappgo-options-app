@@ -819,6 +819,7 @@ const styles = StyleSheet.create<Record<string, any>>({
   pickCard: {
     width: 280,
     padding: spacing.md,
+    paddingTop: spacing.xl,
     borderRadius: borderRadius.lg,
     marginRight: spacing.sm,
   },
