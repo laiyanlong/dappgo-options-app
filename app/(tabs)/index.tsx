@@ -76,14 +76,15 @@ const PriceCard = React.memo(function PriceCard({
         {
           backgroundColor: colors.card,
           borderColor: colors.border,
+          borderWidth: 0.5,
           ...Platform.select({
             ios: {
               shadowColor: '#000',
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.15,
-              shadowRadius: 6,
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.25,
+              shadowRadius: 12,
             },
-            android: { elevation: 3 },
+            android: { elevation: 8 },
           }),
         },
       ]}
@@ -639,7 +640,6 @@ const styles = StyleSheet.create<Record<string, any>>({
     width: 160,
     padding: spacing.md,
     borderRadius: borderRadius.lg,
-    borderWidth: 1,
     marginRight: spacing.sm,
   },
   priceCardHeader: {
@@ -649,20 +649,19 @@ const styles = StyleSheet.create<Record<string, any>>({
     marginBottom: spacing.xs,
   },
   priceSymbol: {
-    ...typography.h3,
-    fontWeight: '700',
+    ...typography.label,
+    letterSpacing: 1.5,
   },
   marketState: {
     ...typography.small,
     textTransform: 'uppercase',
   },
   priceValue: {
-    fontSize: 22,
-    fontWeight: '700',
+    ...typography.monoHero,
     marginBottom: 2,
   },
   priceChange: {
-    ...typography.bodySmall,
+    ...typography.mono,
     fontWeight: '600',
   },
   sparkContainer: {
@@ -711,14 +710,11 @@ const styles = StyleSheet.create<Record<string, any>>({
     flex: 1,
   },
   summaryValue: {
-    fontSize: 20,
-    fontWeight: '700',
+    ...typography.monoLarge,
   },
   summaryLabel: {
-    fontSize: 10,
+    ...typography.label,
     marginTop: 2,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
   },
 
   // Watchlist
@@ -805,14 +801,11 @@ const styles = StyleSheet.create<Record<string, any>>({
     paddingVertical: spacing.xs,
   },
   pickLabel: {
-    ...typography.caption,
+    ...typography.label,
     marginBottom: 2,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
   },
   pickNum: {
-    fontSize: 16,
-    fontWeight: '700',
+    ...typography.monoLarge,
   },
 
   // Quick backtest button

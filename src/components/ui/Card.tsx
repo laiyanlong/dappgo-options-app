@@ -80,10 +80,10 @@ function getVariantStyle(
           ios: {
             shadowColor: '#000',
             shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.18,
-            shadowRadius: 8,
+            shadowOpacity: 0.25,
+            shadowRadius: 12,
           },
-          android: { elevation: 6 },
+          android: { elevation: 8 },
         }),
       } as ViewStyle;
 
@@ -98,17 +98,26 @@ function getVariantStyle(
       return {
         backgroundColor: colors.card,
         borderColor: colors.border,
-        borderWidth: 1,
+        borderWidth: 0.5,
         borderLeftColor: colors.gold,
         borderLeftWidth: 3,
-      };
+        ...Platform.select({
+          ios: {
+            shadowColor: colors.gold,
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.1,
+            shadowRadius: 6,
+          },
+          android: { elevation: 4 },
+        }),
+      } as ViewStyle;
 
     case 'default':
     default:
       return {
-        backgroundColor: colors.card,
+        backgroundColor: colors.card + 'ee', // slight transparency for glass effect
         borderColor: colors.border,
-        borderWidth: 1,
+        borderWidth: 0.5,
       };
   }
 }

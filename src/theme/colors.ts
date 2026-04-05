@@ -1,41 +1,50 @@
 export const darkColors = {
-  background: '#1a1a2e',
-  backgroundAlt: '#16213e',
-  card: '#16213e',
-  cardHover: '#1a2744',
-  text: '#e0e0e0',
-  textMuted: '#90a4ae',
-  textHeading: '#ffffff',
-  accent: '#636EFA',
-  accentDark: '#4d5bce',
-  gold: '#f5c542',
-  positive: '#00e676',
-  negative: '#ff5252',
-  border: '#2a2a4a',
-  borderHover: '#636EFA',
-  navBg: 'rgba(26, 26, 46, 0.95)',
-  tabBar: '#0f0f23',
-  tabInactive: '#616161',
+  // Backgrounds — deeper, richer blacks with slight blue undertone
+  background: '#0c0c1d',      // nearly black with blue tint
+  backgroundAlt: '#131328',    // slightly lighter for layered cards
+  card: '#171733',             // glass-like card background
+  cardHover: '#1e1e45',        // subtle hover state
+
+  // Text — crisp hierarchy
+  text: '#c8cad0',             // body text, slightly warm gray
+  textMuted: '#6b7084',        // secondary text
+  textHeading: '#f0f1f5',      // near-white headings
+
+  // Brand accents
+  accent: '#5b6cf7',           // refined indigo (less saturated than before)
+  accentDark: '#4855d4',
+  gold: '#e8b84b',             // warmer, more luxurious gold
+
+  // Semantic colors — financial standard
+  positive: '#2dd4a8',         // teal-green (easier on eyes than neon)
+  negative: '#f06570',         // soft coral-red (not harsh)
+
+  // Structure
+  border: '#232345',           // subtle borders
+  borderHover: '#5b6cf7',
+  navBg: 'rgba(12, 12, 29, 0.92)',
+  tabBar: '#08081a',           // darkest element
+  tabInactive: '#4a4b5c',
 };
 
 export const lightColors = {
-  background: '#f7f8fc',
+  background: '#f5f6fa',
   backgroundAlt: '#ffffff',
   card: '#ffffff',
-  cardHover: '#f0f4ff',
-  text: '#1e293b',
-  textMuted: '#64748b',
-  textHeading: '#0f172a',
-  accent: '#2563eb',
-  accentDark: '#1d4ed8',
-  gold: '#d4a017',
-  positive: '#16a34a',
-  negative: '#dc2626',
-  border: '#e2e8f0',
-  borderHover: '#2563eb',
-  navBg: 'rgba(255, 255, 255, 0.95)',
+  cardHover: '#f0f2ff',
+  text: '#2d3142',
+  textMuted: '#7c7f8e',
+  textHeading: '#1a1d2e',
+  accent: '#4f5bd5',
+  accentDark: '#3d47b0',
+  gold: '#c49b2a',
+  positive: '#1a9f7c',
+  negative: '#d94452',
+  border: '#e4e6ee',
+  borderHover: '#4f5bd5',
+  navBg: 'rgba(245, 246, 250, 0.92)',
   tabBar: '#ffffff',
-  tabInactive: '#94a3b8',
+  tabInactive: '#a0a3b1',
 };
 
 export type ColorScheme = typeof darkColors;
