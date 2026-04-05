@@ -100,11 +100,12 @@ export function SegmentedControl({
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    borderRadius: 10,
+    borderRadius: 12,
     borderWidth: 0.5,
     padding: 3,
     marginBottom: 16,
-    height: 40,
+    // Apple HIG: minimum 44pt touch target
+    height: 44,
     position: 'relative',
     overflow: 'hidden',
   },
@@ -113,16 +114,18 @@ const styles = StyleSheet.create({
     top: 3,
     bottom: 3,
     left: 3,
-    borderRadius: 8,
+    borderRadius: 9,
   },
   segment: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 1,
+    // Ensure full touch target height
+    minHeight: 38,
   },
   label: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
   },
 });

@@ -450,41 +450,44 @@ export default function ReportsScreen() {
 const styles = StyleSheet.create<Record<string, any>>({
   container: { flex: 1, paddingTop: 16 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 },
-  title: { fontSize: 28, fontWeight: '700', letterSpacing: -1, marginTop: 8, paddingHorizontal: 16, marginBottom: 2 },
-  subtitle: { fontSize: 13, paddingHorizontal: 16, marginBottom: 12 },
+  title: { fontSize: 30, fontWeight: '700', letterSpacing: -1, marginTop: 8, paddingHorizontal: 16, marginBottom: 2 },
+  subtitle: { fontSize: 14, paddingHorizontal: 16, marginBottom: 12 },
 
   // Filter bar
-  filterRow: { marginBottom: 10 },
-  filterContent: { paddingHorizontal: 16, gap: 8, alignItems: 'center', paddingVertical: 4 },
+  filterRow: { marginBottom: 12 },
+  filterContent: { paddingHorizontal: 16, gap: 8, alignItems: 'center', paddingVertical: 6 },
   filterSpacer: { width: 8 },
   chip: {
-    paddingHorizontal: 18,
-    paddingVertical: 12,
-    borderRadius: 20,
+    // Apple HIG pill chip: generous padding, clear pill shape, 44pt+ touch target
+    paddingHorizontal: 16,
+    paddingVertical: 11,
+    borderRadius: 18,
     borderWidth: 1,
     minHeight: 40,
     justifyContent: 'center',
+    alignItems: 'center',
   },
-  chipText: { fontSize: 14, fontWeight: '600', lineHeight: 16 },
+  chipText: { fontSize: 14, fontWeight: '600', lineHeight: 18 },
 
-  // Search bar
+  // Search bar — 44pt touch target
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     marginHorizontal: 16,
-    marginBottom: 10,
+    marginBottom: 12,
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 10,
+    paddingVertical: 10,
+    borderRadius: 12,
     borderWidth: 1,
+    minHeight: 44,
   },
   searchIcon: {
     marginRight: 8,
   },
   searchInput: {
     flex: 1,
-    fontSize: 14,
-    paddingVertical: 2,
+    fontSize: 16,
+    paddingVertical: 0,
   },
 
   // List
@@ -493,20 +496,20 @@ const styles = StyleSheet.create<Record<string, any>>({
   // Card
   cardHeader: { flexDirection: 'row', alignItems: 'baseline', gap: 8, marginBottom: 10 },
   cardDate: { fontSize: 17, fontWeight: '700' },
-  cardDateFull: { fontSize: 12 },
+  cardDateFull: { fontSize: 13 },
 
   tickerGrid: { gap: 2, marginBottom: 10 },
   tickerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    paddingVertical: 6,
+    paddingVertical: 8,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   tickerSymbol: { fontSize: 14, fontWeight: '700', width: 48 },
   tickerPrice: { fontSize: 14, fontWeight: '600', width: 72 },
-  tickerChange: { fontSize: 13, fontWeight: '600', width: 52, textAlign: 'right' },
-  tickerEmojiVerdict: { fontSize: 12, width: 20 },
+  tickerChange: { fontSize: 14, fontWeight: '600', width: 56, textAlign: 'right' },
+  tickerEmojiVerdict: { fontSize: 13, width: 22 },
 
   // Redesigned report card
   reportCard: {
@@ -524,15 +527,16 @@ const styles = StyleSheet.create<Record<string, any>>({
     padding: 16,
   },
   bestTradeInline: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
     marginTop: 4,
   },
 
   // States
-  loadingText: { fontSize: 14, marginTop: 12 },
-  errorText: { fontSize: 15, textAlign: 'center', marginBottom: 16 },
-  retryBtn: { paddingHorizontal: 24, paddingVertical: 10, borderRadius: 8 },
-  retryText: { color: '#fff', fontWeight: '700', fontSize: 14 },
-  emptyText: { textAlign: 'center', marginTop: 48, fontSize: 14 },
+  loadingText: { fontSize: 15, marginTop: 12 },
+  errorText: { fontSize: 16, textAlign: 'center', marginBottom: 16 },
+  // 44pt touch target for retry button
+  retryBtn: { paddingHorizontal: 28, paddingVertical: 12, borderRadius: 10, minHeight: 44, justifyContent: 'center' },
+  retryText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+  emptyText: { textAlign: 'center', marginTop: 48, fontSize: 15 },
 });

@@ -363,7 +363,7 @@ export { calculateStarRating };
 
 const compactStyles = StyleSheet.create({
   card: {
-    paddingVertical: 8,
+    paddingVertical: 10,
     paddingHorizontal: 12,
   },
   row: {
@@ -373,21 +373,25 @@ const compactStyles = StyleSheet.create({
     marginVertical: 2,
   },
   strike: {
-    fontSize: 15,
+    // Increased from 15 → 16pt (body size)
+    fontSize: 16,
     fontWeight: '700',
-    minWidth: 70,
+    minWidth: 72,
   },
   otm: {
-    fontSize: 11,
-    minWidth: 60,
+    // Increased from 11 → 12pt (small)
+    fontSize: 12,
+    minWidth: 64,
   },
   bid: {
-    fontSize: 12,
+    // Increased from 12 → 13pt (caption)
+    fontSize: 13,
     fontWeight: '600',
     flex: 1,
   },
   metric: {
-    fontSize: 11,
+    // Increased from 11 → 12pt (small)
+    fontSize: 12,
     fontWeight: '600',
   },
   metricRow: {
@@ -401,9 +405,10 @@ const compactStyles = StyleSheet.create({
     gap: 2,
   },
   iconBtn: {
-    padding: 8,
-    minWidth: 40,
-    minHeight: 40,
+    // Apple HIG minimum 44x44pt touch target
+    padding: 10,
+    minWidth: 44,
+    minHeight: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -442,7 +447,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   otmLabel: {
-    fontSize: 13,
+    fontSize: 14,
     marginTop: 2,
     marginBottom: 10,
   },

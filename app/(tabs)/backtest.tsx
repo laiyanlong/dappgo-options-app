@@ -1086,24 +1086,31 @@ const styles = StyleSheet.create<Record<string, any>>({
     alignItems: 'flex-start',
     marginBottom: 16,
   },
-  title: { fontSize: 28, fontWeight: '700', letterSpacing: -1, marginTop: 8, marginBottom: 2 },
-  subtitle: { fontSize: 13 },
+  title: { fontSize: 30, fontWeight: '700', letterSpacing: -1, marginTop: 8, marginBottom: 2 },
+  subtitle: { fontSize: 14 },
 
-  // Chips
+  // Chips — 44pt minimum touch target, pill style matching Reports
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 },
   chip: {
     paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingVertical: 11,
+    borderRadius: 18,
     borderWidth: 1,
+    // 44pt touch target
+    minHeight: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  chipText: { fontSize: 13, fontWeight: '600' },
+  chipText: { fontSize: 14, fontWeight: '600' },
   periodChip: {
     flex: 1,
-    paddingVertical: 10,
+    paddingVertical: 12,
     borderRadius: 10,
     borderWidth: 1,
     alignItems: 'center',
+    justifyContent: 'center',
+    // 44pt touch target
+    minHeight: 44,
   },
 
   // Slider
@@ -1120,9 +1127,10 @@ const styles = StyleSheet.create<Record<string, any>>({
     gap: 8,
   },
   sliderBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    // Apple HIG minimum touch target: 44x44pt
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1149,8 +1157,8 @@ const styles = StyleSheet.create<Record<string, any>>({
   },
   tickLabel: { fontSize: 10, width: 16, textAlign: 'center' },
 
-  // Section labels
-  sectionLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 1, textTransform: 'uppercase' },
+  // Section labels — 11pt minimum for uppercase label per HIG
+  sectionLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 1.2, textTransform: 'uppercase' },
 
   // Run button
   runBtn: {

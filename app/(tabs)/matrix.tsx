@@ -207,222 +207,255 @@ export default function MatrixScreen() {
 
   const keyExtractor = useCallback((item: OptionEntry) => `${item.strike}`, []);
 
-  // ── Empty / Loading state ──
-  if (!matrix) {
-    return (
-      <View style={[styles.emptyContainer, { backgroundColor: colors.background, paddingTop: insets.top + 12 }]}>
-        {loading ? (
-          <>
-            <ActivityIndicator size="large" color={colors.accent} />
-            <Text style={[styles.emptySubtitle, { color: colors.textMuted, marginTop: 12 }]}>
-              Loading options data...
-            </Text>
-          </>
-        ) : (
-          <>
-            <Text style={[styles.emptyIcon, { color: colors.textMuted }]}>{'\u26A0'}</Text>
-            <Text style={[styles.emptyTitle, { color: colors.textHeading }]}>
-              No Matrix Data
-            </Text>
-            <Text style={[styles.emptySubtitle, { color: colors.textMuted }]}>
-              {selectedTicker === 'TSLA'
-                ? 'Data loading failed. Check your connection.'
-                : `${selectedTicker} matrix coming soon.\nCurrently only TSLA has live options data.\nSelect TSLA to view strike comparison.`}
-            </Text>
-            <TouchableOpacity
-              style={[styles.retryBtn, { backgroundColor: colors.accent }]}
-              onPress={() => {
-                setLoading(true);
-                fetchDashboardData(GITHUB_OWNER, GITHUB_REPO)
-                  .then((data) => {
-                    setDashboardData(data);
-                    const m = (data as Record<string, unknown>)?.tsla_matrix;
-                    const mapped = mapTslaMatrix(m); if (mapped) setMatrix('TSLA', mapped);
-                  })
-                  .catch(() => {})
-                  .finally(() => setLoading(false));
-              }}
-            >
-              <Text style={{ color: '#fff', fontWeight: '600' }}>Retry</Text>
-            </TouchableOpacity>
-          </>
-        )}
-      </View>
-    );
-  }
+  // ── ListHeaderComponent ──
+  // All controls live here so they always render. The FlatList only swaps
+  // ListEmptyComponent vs actual rows below — the header never re-mounts,
+  // which eliminates the layout shift when switching tickers.
+  const listHeaderData = {
+    colors, router, selectedTicker, loading, currentPrice,
+    expiries, selectedExpiryIdx, typeIndex, strikes, bestStrike, matrix,
+  };
 
-  return (
-    <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top + 12 }]}>
-      {/* ── Header with glossary link ── */}
+  const renderListHeader = useCallback(() => (
+    <>
+      {/* ── Page header with glossary ── */}
       <View style={styles.header}>
         <View style={{ flex: 1 }}>
           <Text style={[styles.title, { color: colors.textHeading }]}>Options Matrix</Text>
           <Text style={[styles.subtitle, { color: colors.textMuted }]}>
-            Strike comparison & analysis
+            Strike comparison &amp; analysis
           </Text>
         </View>
         <TouchableOpacity
           onPress={() => router.push('/glossary')}
           activeOpacity={0.7}
           style={styles.glossaryBtn}
+          hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
         >
-          <Ionicons name="help-circle-outline" size={24} color={colors.textMuted} />
+          <Ionicons name="help-circle-outline" size={26} color={colors.textMuted} />
         </TouchableOpacity>
       </View>
 
-      {/* ── Ticker chips ── */}
+      {/* ── Ticker chips — 44pt touch targets ── */}
       <View style={styles.tickerRow}>
         <View style={styles.tickerContent}>
-        {TICKERS.map((ticker) => {
-          const active = ticker === selectedTicker;
-          return (
-            <TouchableOpacity
-              key={ticker}
-              style={[
-                styles.tickerChip,
-                {
-                  backgroundColor: active ? colors.accent : 'transparent',
-                  borderColor: active ? colors.accent : colors.border,
-                },
-              ]}
-              onPress={() => {
-                setSelectedTicker(ticker);
-                setSelectedExpiryIdx(0);
-                // Do NOT clear compare list — cross-ticker compare persists
-              }}
-              activeOpacity={0.7}
-            >
-              <Text
-                numberOfLines={1}
-                style={[
-                  styles.tickerSymbol,
-                  { color: active ? '#fff' : colors.textMuted },
-                ]}
-              >
-                {ticker}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-        </View>
-      </View>
-
-      {/* ── Selected ticker price row (fixed height to prevent layout shift) ── */}
-      <View style={styles.priceRow}>
-        <Text style={[styles.priceRowTicker, { color: colors.textHeading }]}>
-          {selectedTicker}
-        </Text>
-        <Text style={[styles.priceRowPrice, { color: colors.textHeading }]}>
-          {formatDollar(matrix?.price ?? quotes[selectedTicker]?.price ?? 0)}
-        </Text>
-      </View>
-
-      {/* ── Expiry tabs ── */}
-      {expiries.length > 0 && (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.expiryScroll}
-          contentContainerStyle={styles.expiryContent}
-          scrollEventThrottle={16}
-          bounces
-        >
-          {expiries.map((exp, idx) => {
-            const active = idx === selectedExpiryIdx;
-            const dte = exp.dte > 0 ? exp.dte : daysUntil(exp.date);
+          {TICKERS.map((ticker) => {
+            const active = ticker === selectedTicker;
             return (
               <TouchableOpacity
-                key={exp.date}
-                style={styles.expiryTab}
+                key={ticker}
+                style={[
+                  styles.tickerChip,
+                  {
+                    backgroundColor: active ? colors.accent : 'transparent',
+                    borderColor: active ? colors.accent : colors.border,
+                  },
+                ]}
                 onPress={() => {
-                  setSelectedExpiryIdx(idx);
+                  setSelectedTicker(ticker);
+                  setSelectedExpiryIdx(0);
                 }}
                 activeOpacity={0.7}
               >
                 <Text
                   numberOfLines={1}
                   style={[
-                    styles.expiryDate,
-                    { color: active ? colors.gold : colors.textMuted },
+                    styles.tickerSymbol,
+                    { color: active ? '#fff' : colors.textMuted },
                   ]}
                 >
-                  {formatDate(exp.date)}
+                  {ticker}
                 </Text>
-                <Text
-                  numberOfLines={1}
-                  style={[
-                    styles.expiryDte,
-                    { color: active ? colors.gold : colors.tabInactive },
-                  ]}
-                >
-                  ({dte}d)
-                </Text>
-                {/* Underline indicator — sits flush at the bottom of the tab */}
-                <View
-                  style={[
-                    styles.expiryUnderline,
-                    { backgroundColor: active ? colors.gold : 'transparent' },
-                  ]}
-                />
               </TouchableOpacity>
             );
           })}
-        </ScrollView>
-      )}
+        </View>
+      </View>
+
+      {/* ── Selected ticker price row — fixed height prevents layout shift ── */}
+      <View style={styles.priceRow}>
+        {loading ? (
+          <ActivityIndicator size="small" color={colors.accent} style={{ marginRight: 8 }} />
+        ) : (
+          <Text style={[styles.priceRowTicker, { color: colors.textHeading }]}>
+            {selectedTicker}
+          </Text>
+        )}
+        <Text style={[styles.priceRowPrice, { color: colors.textHeading }]}>
+          {currentPrice > 0 ? formatDollar(currentPrice) : '—'}
+        </Text>
+      </View>
+
+      {/* ── Expiry tabs — container always rendered for stable height ── */}
+      <View style={styles.expiryScrollContainer}>
+        {expiries.length > 0 ? (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.expiryContent}
+            scrollEventThrottle={16}
+            bounces
+          >
+            {expiries.map((exp, idx) => {
+              const active = idx === selectedExpiryIdx;
+              const dte = exp.dte > 0 ? exp.dte : daysUntil(exp.date);
+              return (
+                <TouchableOpacity
+                  key={exp.date}
+                  style={styles.expiryTab}
+                  onPress={() => setSelectedExpiryIdx(idx)}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    numberOfLines={1}
+                    style={[
+                      styles.expiryDate,
+                      { color: active ? colors.gold : colors.textMuted },
+                    ]}
+                  >
+                    {formatDate(exp.date)}
+                  </Text>
+                  <Text
+                    numberOfLines={1}
+                    style={[
+                      styles.expiryDte,
+                      { color: active ? colors.gold : colors.tabInactive },
+                    ]}
+                  >
+                    ({dte}d)
+                  </Text>
+                  <View
+                    style={[
+                      styles.expiryUnderline,
+                      { backgroundColor: active ? colors.gold : 'transparent' },
+                    ]}
+                  />
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        ) : (
+          // Placeholder — maintains the row height when no expiry data
+          <View style={styles.expiryPlaceholder} />
+        )}
+      </View>
 
       {/* ── Type toggle ── */}
       <View style={styles.typeToggle}>
         <SegmentedControl
           segments={TYPE_SEGMENTS}
           selectedIndex={typeIndex}
-          onChange={(idx) => {
-            setTypeIndex(idx);
-          }}
+          onChange={(idx) => setTypeIndex(idx)}
         />
       </View>
 
-      {/* ── Strike count ── */}
-      <Text style={[styles.countLabel, { color: colors.textMuted }]}>
-        {strikes.length} strikes
-        {bestStrike ? ` \u2022 Best: ${formatDollar(bestStrike.strike)}` : ''}
-      </Text>
+      {/* ── Strike count — fixed height row ── */}
+      <View style={styles.countRow}>
+        <Text style={[styles.countLabel, { color: colors.textMuted }]}>
+          {strikes.length > 0
+            ? `${strikes.length} strikes${bestStrike ? ` \u2022 Best: ${formatDollar(bestStrike.strike)}` : ''}`
+            : matrix
+            ? ''
+            : loading
+            ? 'Loading...'
+            : ''}
+        </Text>
+      </View>
+    </>
+  ), [
+    colors, router, selectedTicker, loading, currentPrice,
+    expiries, selectedExpiryIdx, typeIndex, strikes, bestStrike, matrix,
+  ]);
 
-      {/* ── Strike cards FlatList ── */}
-      {strikes.length === 0 ? (
-        <View style={styles.noStrikes}>
-          <Text style={[styles.noStrikesText, { color: colors.textMuted }]}>
-            No {typeIndex === 0 ? 'put' : 'call'} data for this expiry
+  // ── Empty state — rendered inside FlatList so the stable header stays put ──
+  const renderListEmpty = useCallback(() => {
+    if (loading) {
+      return (
+        <View style={styles.emptyInList}>
+          <ActivityIndicator size="large" color={colors.accent} />
+          <Text style={[styles.emptySubtitle, { color: colors.textMuted, marginTop: 16 }]}>
+            Loading options data...
           </Text>
         </View>
-      ) : (
-        <FlatList
-          data={strikes}
-          renderItem={renderStrikeCard}
-          keyExtractor={keyExtractor}
-          contentContainerStyle={[
-            styles.listContent,
-            compareItems.length > 0 && { paddingBottom: 180 },
-          ]}
-          numColumns={isWide ? 2 : 1}
-          key={isWide ? 'wide' : 'narrow'}
-          showsVerticalScrollIndicator={false}
-          scrollEventThrottle={16}
-          bounces
-          initialNumToRender={10}
-          maxToRenderPerBatch={5}
-          windowSize={5}
-          removeClippedSubviews={Platform.OS === 'android'}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              tintColor={colors.accent}
-            />
-          }
-        />
-      )}
+      );
+    }
+    if (!matrix) {
+      return (
+        <View style={styles.emptyInList}>
+          <Text style={[styles.emptyIcon, { color: colors.textMuted }]}>{'\u26A0'}</Text>
+          <Text style={[styles.emptyTitle, { color: colors.textHeading }]}>
+            No Matrix Data
+          </Text>
+          <Text style={[styles.emptySubtitle, { color: colors.textMuted }]}>
+            {selectedTicker === 'TSLA'
+              ? 'Data loading failed. Check your connection.'
+              : `${selectedTicker} matrix coming soon.\nCurrently only TSLA has live options data.\nSelect TSLA to view strike comparison.`}
+          </Text>
+          <TouchableOpacity
+            style={[styles.retryBtn, { backgroundColor: colors.accent }]}
+            onPress={() => {
+              setLoading(true);
+              fetchDashboardData(GITHUB_OWNER, GITHUB_REPO)
+                .then((data) => {
+                  setDashboardData(data);
+                  const m = (data as Record<string, unknown>)?.tsla_matrix;
+                  const mapped = mapTslaMatrix(m);
+                  if (mapped) setMatrix('TSLA', mapped);
+                })
+                .catch(() => {})
+                .finally(() => setLoading(false));
+            }}
+          >
+            <Text style={{ color: '#fff', fontWeight: '600', fontSize: 15 }}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+    // Matrix loaded but no strikes for this expiry/type
+    return (
+      <View style={styles.emptyInList}>
+        <Text style={[styles.noStrikesText, { color: colors.textMuted }]}>
+          No {typeIndex === 0 ? 'put' : 'call'} data for this expiry
+        </Text>
+      </View>
+    );
+  }, [loading, matrix, selectedTicker, colors, typeIndex, setDashboardData, setMatrix]);
 
-      {/* ── Floating compare bar (when items > 0) ── */}
+  return (
+    <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
+      {/* ── Single FlatList with stable ListHeaderComponent ──
+          Header always renders regardless of data state.
+          Only the rows below it change (empty vs strikes).
+          This eliminates layout shift when switching tickers. */}
+      <FlatList
+        data={strikes}
+        renderItem={renderStrikeCard}
+        keyExtractor={keyExtractor}
+        ListHeaderComponent={renderListHeader}
+        ListEmptyComponent={renderListEmpty}
+        contentContainerStyle={[
+          styles.listContent,
+          compareItems.length > 0 && { paddingBottom: 180 },
+        ]}
+        numColumns={isWide ? 2 : 1}
+        key={isWide ? 'wide' : 'narrow'}
+        showsVerticalScrollIndicator={false}
+        scrollEventThrottle={16}
+        bounces
+        initialNumToRender={10}
+        maxToRenderPerBatch={5}
+        windowSize={5}
+        removeClippedSubviews={Platform.OS === 'android'}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.accent}
+          />
+        }
+      />
+
+      {/* ── Floating compare bar ── */}
       {compareItems.length > 0 && !compareSheetOpen && (
         <TouchableOpacity
           style={[styles.floatingBar, { backgroundColor: colors.accent }]}
@@ -444,7 +477,11 @@ export default function MatrixScreen() {
             <Text style={[styles.compareTitle, { color: colors.textHeading }]}>
               Compare ({compareItems.length})
             </Text>
-            <TouchableOpacity onPress={() => setCompareSheetOpen(false)} activeOpacity={0.7}>
+            <TouchableOpacity
+              onPress={() => setCompareSheetOpen(false)}
+              activeOpacity={0.7}
+              style={styles.sheetCloseBtn}
+            >
               <Ionicons name="chevron-down" size={22} color={colors.textMuted} />
             </TouchableOpacity>
           </View>
@@ -466,7 +503,8 @@ export default function MatrixScreen() {
                   <TouchableOpacity
                     onPress={() => removeCompareItem(item.symbol, item.strike)}
                     activeOpacity={0.7}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    style={styles.compareRemoveBtn}
                   >
                     <Ionicons name="close" size={16} color={colors.textMuted} />
                   </TouchableOpacity>
@@ -519,31 +557,34 @@ const styles = StyleSheet.create<Record<string, any>>({
   container: {
     flex: 1,
   },
+  // Page header
   header: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     paddingHorizontal: 16,
-    paddingTop: 4,
-    marginBottom: 12,
+    paddingTop: 12,
+    marginBottom: 8,
   },
   title: {
-    fontSize: 28,
+    // HIG h1: 30pt
+    fontSize: 30,
     fontWeight: '700',
     letterSpacing: -1,
     marginBottom: 4,
   },
   subtitle: {
-    fontSize: 13,
-    marginBottom: 12,
+    fontSize: 14,
+    marginBottom: 8,
   },
   glossaryBtn: {
-    padding: 8,
-    minWidth: 44,
-    minHeight: 44,
+    // 44x44 minimum touch target
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  // Ticker chips
+
+  // Ticker chips — 44pt minimum height
   tickerRow: {
     marginBottom: 4,
     paddingHorizontal: 16,
@@ -551,7 +592,7 @@ const styles = StyleSheet.create<Record<string, any>>({
   tickerContent: {
     flexDirection: 'row',
     gap: 10,
-    paddingVertical: 8,
+    paddingVertical: 4,
   },
   tickerChip: {
     flex: 1,
@@ -559,56 +600,59 @@ const styles = StyleSheet.create<Record<string, any>>({
     justifyContent: 'center',
     borderRadius: 24,
     borderWidth: 1,
-    height: 44,
+    minHeight: 44,
   },
   tickerSymbol: {
     fontSize: 15,
     fontWeight: '700',
     letterSpacing: 0.3,
   },
-  // Selected ticker price row
+
+  // Price row — fixed height to prevent layout shift
   priceRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    height: 28,
-    marginBottom: 8,
+    height: 32,
+    marginBottom: 4,
     gap: 6,
   },
   priceRowTicker: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
   },
   priceRowPrice: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
   },
-  priceRowChange: {
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  // Expiry tabs
-  expiryScroll: {
-    marginBottom: 8,
+
+  // Expiry tabs — container always rendered, fixed height
+  expiryScrollContainer: {
+    height: 56,
+    marginBottom: 4,
+    justifyContent: 'center',
   },
   expiryContent: {
     paddingHorizontal: 16,
     gap: 4,
     paddingVertical: 4,
+    alignItems: 'center',
   },
   expiryTab: {
     paddingHorizontal: 14,
-    paddingTop: 10,
-    paddingBottom: 6,
+    paddingTop: 6,
+    paddingBottom: 4,
     alignItems: 'center',
-    minHeight: 52,
+    // 44pt minimum touch target
+    minHeight: 44,
+    justifyContent: 'center',
   },
   expiryDate: {
     fontSize: 14,
     fontWeight: '600',
   },
   expiryDte: {
-    fontSize: 11,
+    fontSize: 12,
     marginTop: 2,
     marginBottom: 4,
   },
@@ -617,33 +661,44 @@ const styles = StyleSheet.create<Record<string, any>>({
     width: '100%',
     borderRadius: 1,
   },
+  // Placeholder keeps row height when no expiry data is available
+  expiryPlaceholder: {
+    height: 44,
+  },
+
   // Type toggle
   typeToggle: {
     paddingHorizontal: 16,
-    marginTop: 8,
+    marginTop: 4,
+    marginBottom: 0,
+  },
+
+  // Count label — fixed height to prevent shift
+  countRow: {
+    height: 28,
+    justifyContent: 'center',
+    paddingHorizontal: 16,
     marginBottom: 4,
   },
-  // Count label
   countLabel: {
-    fontSize: 12,
-    paddingHorizontal: 16,
-    marginBottom: 8,
+    fontSize: 13,
   },
+
   // FlatList
   listContent: {
     paddingHorizontal: 12,
-    paddingBottom: 120, // room for compare bar
+    paddingBottom: 120,
   },
   gridItem: {
     flex: 1,
     paddingHorizontal: 4,
   },
-  // Empty state
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
+
+  // Empty / loading states — rendered inside FlatList so header stays stable
+  emptyInList: {
     alignItems: 'center',
-    padding: 32,
+    paddingVertical: 48,
+    paddingHorizontal: 32,
   },
   emptyIcon: {
     fontSize: 48,
@@ -655,25 +710,22 @@ const styles = StyleSheet.create<Record<string, any>>({
     marginBottom: 8,
   },
   emptySubtitle: {
-    fontSize: 14,
+    fontSize: 15,
     textAlign: 'center',
-    lineHeight: 20,
-  },
-  retryBtn: {
-    marginTop: 16,
-    paddingHorizontal: 24,
-    paddingVertical: 10,
-    borderRadius: 8,
-  },
-  noStrikes: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 40,
+    lineHeight: 22,
   },
   noStrikesText: {
-    fontSize: 14,
+    fontSize: 15,
   },
+  retryBtn: {
+    marginTop: 20,
+    paddingHorizontal: 28,
+    paddingVertical: 12,
+    borderRadius: 10,
+    minHeight: 44,
+    justifyContent: 'center',
+  },
+
   // Floating compare bar
   floatingBar: {
     position: 'absolute',
@@ -686,6 +738,7 @@ const styles = StyleSheet.create<Record<string, any>>({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
+    minHeight: 44,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
@@ -694,9 +747,10 @@ const styles = StyleSheet.create<Record<string, any>>({
   },
   floatingBarText: {
     color: '#fff',
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '700',
   },
+
   // Compare bottom sheet
   compareSheet: {
     position: 'absolute',
@@ -721,8 +775,14 @@ const styles = StyleSheet.create<Record<string, any>>({
     marginBottom: 10,
   },
   compareTitle: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '700',
+  },
+  sheetCloseBtn: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   compareScroll: {
     gap: 10,
@@ -731,21 +791,26 @@ const styles = StyleSheet.create<Record<string, any>>({
   compareCard: {
     borderWidth: 1,
     borderRadius: 10,
-    padding: 10,
-    minWidth: 120,
+    padding: 12,
+    minWidth: 130,
   },
   compareCardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: 6,
+  },
+  compareRemoveBtn: {
+    // Increase touch target via padding
+    padding: 10,
+    margin: -10,
   },
   compareSymbol: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
   },
   compareStat: {
-    fontSize: 12,
+    fontSize: 13,
     marginBottom: 2,
   },
   compareActions: {
@@ -754,15 +819,16 @@ const styles = StyleSheet.create<Record<string, any>>({
     marginTop: 8,
   },
   clearBtn: {
-    paddingVertical: 10,
+    paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 10,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    minHeight: 44,
   },
   clearBtnText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
   },
   backtestBtn: {
@@ -770,10 +836,12 @@ const styles = StyleSheet.create<Record<string, any>>({
     paddingVertical: 12,
     borderRadius: 10,
     alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 44,
   },
   backtestBtnText: {
     color: '#fff',
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '700',
   },
 });
