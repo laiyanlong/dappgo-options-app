@@ -548,12 +548,12 @@ const styles = StyleSheet.create<Record<string, any>>({
   },
   // Ticker chips
   tickerRow: {
-    marginBottom: 12,
+    marginBottom: 16,
   },
   tickerContent: {
     paddingHorizontal: 16,
     gap: 10,
-    paddingVertical: 4,
+    paddingVertical: 6,
   },
   tickerChip: {
     flexDirection: 'row',
@@ -583,20 +583,20 @@ const styles = StyleSheet.create<Record<string, any>>({
   },
   // Expiry tabs
   expiryScroll: {
-    marginBottom: 8,
+    marginBottom: 14,
   },
   expiryContent: {
     paddingHorizontal: 16,
-    gap: 6,
-    paddingVertical: 4,
+    gap: 8,
+    paddingVertical: 6,
   },
   expiryTab: {
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingVertical: 12,
     alignItems: 'center',
   },
   expiryDate: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
   },
   expiryDte: {
