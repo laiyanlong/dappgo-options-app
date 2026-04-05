@@ -421,7 +421,16 @@ export default function MatrixScreen() {
         />
       )}
 
-      {/* ── Compare bottom sheet ── */}
+      {/* ── Compare floating badge (when 1+ selected) ── */}
+      {checkedStrikes.size > 0 && checkedStrikes.size < 2 && (
+        <View style={[styles.floatingBadge, { backgroundColor: colors.accent }]}>
+          <Text style={styles.floatingBadgeText}>
+            {checkedStrikes.size} selected — check 1 more to compare
+          </Text>
+        </View>
+      )}
+
+      {/* ── Compare bottom sheet (when 2+ selected) ── */}
       {comparedEntries.length >= 2 && (
         <View style={[styles.compareSheet, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Text style={[styles.compareTitle, { color: colors.textHeading }]}>
@@ -657,6 +666,20 @@ const styles = StyleSheet.create<Record<string, any>>({
     fontSize: 14,
   },
   // Compare bottom sheet
+  floatingBadge: {
+    position: 'absolute',
+    bottom: 20,
+    left: 20,
+    right: 20,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  floatingBadgeText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
   compareSheet: {
     position: 'absolute',
     bottom: 0,

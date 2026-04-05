@@ -60,7 +60,14 @@ function RootLayoutNav() {
 
   return (
     <ThemeProvider>
-      <NavThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+      <NavThemeProvider value={{
+        ...(colorScheme === 'dark' ? DarkTheme : DefaultTheme),
+        colors: {
+          ...(colorScheme === 'dark' ? DarkTheme : DefaultTheme).colors,
+          background: colorScheme === 'dark' ? '#0c0c1d' : '#f5f6fa',
+          card: colorScheme === 'dark' ? '#0c0c1d' : '#ffffff',
+        },
+      }}>
         <StatusBar barStyle="light-content" />
         <NetworkBanner />
         <Stack>

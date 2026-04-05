@@ -114,7 +114,8 @@ function TabNavigator() {
           fontSize: 11,
           fontWeight: '600',
         },
-        animation: 'fade',
+        animation: 'shift',
+        sceneStyle: { backgroundColor: colors.background },
       }}
     >
       <Tabs.Screen

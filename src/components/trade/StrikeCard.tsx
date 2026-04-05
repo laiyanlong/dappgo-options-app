@@ -74,11 +74,12 @@ export const StrikeCard = React.memo(function StrikeCard({
   const { colors } = useTheme();
   const stars = calculateStarRating(entry);
 
-  // Watchlist integration
-  const hasItem = useWatchlistStore((s) => s.hasItem);
+  // Watchlist integration — subscribe to items array for reactive updates
+  const isInWatchlist = useWatchlistStore((s) =>
+    s.items.some((it) => it.symbol === symbol && it.strike === entry.strike)
+  );
   const addItem = useWatchlistStore((s) => s.addItem);
   const removeByKey = useWatchlistStore((s) => s.removeByKey);
-  const isInWatchlist = hasItem(symbol, entry.strike);
 
   const toggleWatchlist = () => {
     if (isInWatchlist) {
