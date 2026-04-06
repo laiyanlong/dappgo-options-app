@@ -175,9 +175,67 @@ function ToggleButton({
   );
 }
 
+// ── Crosshair Overlay (separated to avoid re-rendering all SVG paths) ──
+
+interface CrosshairProps {
+  x: number;
+  y: number;
+  topY: number;
+  bottomY: number;
+  leftX: number;
+  rightX: number;
+  color: string;
+  mutedColor: string;
+}
+
+const CrosshairOverlay = React.memo(function CrosshairOverlay({
+  x,
+  y,
+  topY,
+  bottomY,
+  leftX,
+  rightX,
+  color,
+  mutedColor,
+}: CrosshairProps) {
+  return (
+    <G>
+      {/* Vertical line */}
+      <Line
+        x1={x}
+        y1={topY}
+        x2={x}
+        y2={bottomY}
+        stroke={mutedColor}
+        strokeWidth={0.8}
+        strokeDasharray="3,3"
+      />
+      {/* Horizontal line */}
+      <Line
+        x1={leftX}
+        y1={y}
+        x2={rightX}
+        y2={y}
+        stroke={mutedColor}
+        strokeWidth={0.5}
+        strokeDasharray="3,3"
+      />
+      {/* Dot */}
+      <Circle
+        cx={x}
+        cy={y}
+        r={5}
+        fill={color}
+        stroke="#fff"
+        strokeWidth={2}
+      />
+    </G>
+  );
+});
+
 // ── Main Component ──
 
-export function StockChart({
+export const StockChart = React.memo(function StockChart({
   symbol,
   currentPrice,
   intradayPrices,
@@ -355,14 +413,30 @@ export function StockChart({
 
   const currentPriceY = priceToY(currentPrice);
 
-  // ── Touch / crosshair ──
+  // ── Touch / crosshair (throttled via requestAnimationFrame) ──
+
+  const rafRef = useRef<number | null>(null);
+  const setTouchXThrottled = useCallback((x: number) => {
+    if (rafRef.current != null) return;
+    rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = null;
+      setTouchX(x);
+    });
+  }, []);
+
+  // Clean up any pending RAF on unmount
+  useEffect(() => {
+    return () => {
+      if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
+    };
+  }, []);
 
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
       onPanResponderGrant: (_, gs) => setTouchX(gs.x0),
-      onPanResponderMove: (_, gs) => setTouchX(gs.moveX),
+      onPanResponderMove: (_, gs) => setTouchXThrottled(gs.moveX),
       onPanResponderRelease: () => setTouchX(null),
       onPanResponderTerminate: () => setTouchX(null),
     })
@@ -577,39 +651,18 @@ export function StockChart({
             </>
           )}
 
-          {/* ── Crosshair ── */}
+          {/* ── Crosshair (separate component to avoid re-rendering SVG paths) ── */}
           {crosshairData && (
-            <G>
-              {/* Vertical line */}
-              <Line
-                x1={crosshairData.x}
-                y1={CHART_PADDING.top}
-                x2={crosshairData.x}
-                y2={CHART_PADDING.top + plotHeight}
-                stroke={colors.textMuted}
-                strokeWidth={0.8}
-                strokeDasharray="3,3"
-              />
-              {/* Horizontal line */}
-              <Line
-                x1={CHART_PADDING.left}
-                y1={crosshairData.y}
-                x2={chartWidth - CHART_PADDING.right}
-                y2={crosshairData.y}
-                stroke={colors.textMuted}
-                strokeWidth={0.5}
-                strokeDasharray="3,3"
-              />
-              {/* Dot */}
-              <Circle
-                cx={crosshairData.x}
-                cy={crosshairData.y}
-                r={5}
-                fill={color}
-                stroke="#fff"
-                strokeWidth={2}
-              />
-            </G>
+            <CrosshairOverlay
+              x={crosshairData.x}
+              y={crosshairData.y}
+              topY={CHART_PADDING.top}
+              bottomY={CHART_PADDING.top + plotHeight}
+              leftX={CHART_PADDING.left}
+              rightX={chartWidth - CHART_PADDING.right}
+              color={color}
+              mutedColor={colors.textMuted}
+            />
           )}
         </Svg>
       </Animated.View>
@@ -629,7 +682,7 @@ export function StockChart({
       </View>
     </View>
   );
-}
+});
 
 // ── Fallback intraday generator ──
 

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import Svg, { Polyline, Defs, LinearGradient, Stop } from 'react-native-svg';
 
 interface SparkLineProps {
@@ -19,35 +19,41 @@ interface SparkLineProps {
  * Maps an array of numeric values to an SVG polyline that fills the
  * given width/height, with a subtle gradient fill beneath the line.
  */
-export function SparkLine({
+export const SparkLine = React.memo(function SparkLine({
   prices,
   color,
   width = 80,
   height = 32,
   strokeWidth = 1.5,
 }: SparkLineProps) {
+  // Memoize SVG path calculations — only recompute when prices, width, or height change
+  const { points, fillPoints } = useMemo(() => {
+    if (prices.length < 2) return { points: '', fillPoints: '' };
+
+    const min = Math.min(...prices);
+    const max = Math.max(...prices);
+    const range = max - min || 1;
+
+    const padding = 2;
+    const innerW = width - padding * 2;
+    const innerH = height - padding * 2;
+
+    const pts = prices
+      .map((v, i) => {
+        const x = padding + (i / (prices.length - 1)) * innerW;
+        const y = padding + innerH - ((v - min) / range) * innerH;
+        return `${x.toFixed(1)},${y.toFixed(1)}`;
+      })
+      .join(' ');
+
+    const firstX = padding;
+    const lastX = padding + innerW;
+    const fill = `${pts} ${lastX.toFixed(1)},${height} ${firstX.toFixed(1)},${height}`;
+
+    return { points: pts, fillPoints: fill };
+  }, [prices, width, height]);
+
   if (prices.length < 2) return null;
-
-  const min = Math.min(...prices);
-  const max = Math.max(...prices);
-  const range = max - min || 1;
-
-  const padding = 2;
-  const innerW = width - padding * 2;
-  const innerH = height - padding * 2;
-
-  const points = prices
-    .map((v, i) => {
-      const x = padding + (i / (prices.length - 1)) * innerW;
-      const y = padding + innerH - ((v - min) / range) * innerH;
-      return `${x.toFixed(1)},${y.toFixed(1)}`;
-    })
-    .join(' ');
-
-  // Build a closed polygon for the gradient fill area
-  const firstX = padding;
-  const lastX = padding + innerW;
-  const fillPoints = `${points} ${lastX.toFixed(1)},${height} ${firstX.toFixed(1)},${height}`;
 
   return (
     <Svg width={width} height={height}>
@@ -72,4 +78,4 @@ export function SparkLine({
       />
     </Svg>
   );
-}
+});

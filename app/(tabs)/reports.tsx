@@ -429,10 +429,16 @@ export default function ReportsScreen() {
           keyboardDismissMode="on-drag"
           scrollEventThrottle={16}
           bounces
-          initialNumToRender={10}
-          maxToRenderPerBatch={5}
+          initialNumToRender={8}
+          maxToRenderPerBatch={4}
+          updateCellsBatchingPeriod={50}
           windowSize={5}
-          removeClippedSubviews={Platform.OS === 'android'}
+          removeClippedSubviews={Platform.OS !== 'web'}
+          getItemLayout={(_, index) => ({
+            length: 180,
+            offset: 180 * index,
+            index,
+          })}
           refreshControl={
             <RefreshControl
               refreshing={isLoading}

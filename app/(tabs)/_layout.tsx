@@ -115,6 +115,8 @@ function TabNavigator() {
           fontWeight: '600',
         },
         animation: 'shift',
+        freezeOnBlur: true,
+        lazy: false,
         sceneStyle: { backgroundColor: colors.background },
       }}
     >

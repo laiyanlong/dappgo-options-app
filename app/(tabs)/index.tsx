@@ -610,6 +610,7 @@ export default function DashboardScreen() {
               bounces
               initialNumToRender={5}
               maxToRenderPerBatch={5}
+              removeClippedSubviews={Platform.OS !== 'web'}
             />
           </View>
         </FadeIn>
@@ -789,6 +790,7 @@ export default function DashboardScreen() {
             bounces
             initialNumToRender={5}
             maxToRenderPerBatch={5}
+            removeClippedSubviews={Platform.OS !== 'web'}
           />
         ) : (
           <Card>
@@ -818,6 +820,7 @@ export default function DashboardScreen() {
             bounces
             initialNumToRender={4}
             maxToRenderPerBatch={4}
+            removeClippedSubviews={Platform.OS !== 'web'}
           />
         </View>
       )}
