@@ -11,6 +11,8 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
+  Modal,
+  Pressable,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -116,6 +118,9 @@ export default function ReportsScreen() {
 
   // Settings (for badge tracking)
   const setLastViewedReportCount = useSettingsStore((s) => s.setLastViewedReportCount);
+
+  // Preview modal state (long-press peek)
+  const [previewDate, setPreviewDate] = useState<string | null>(null);
 
   // Local state
   const [error, setError] = useState<string | null>(null);
@@ -262,6 +267,8 @@ export default function ReportsScreen() {
         <TouchableOpacity
           activeOpacity={0.8}
           onPress={() => router.push({ pathname: '/report/[date]', params: { date } })}
+          onLongPress={() => setPreviewDate(date)}
+          delayLongPress={400}
           style={[
             styles.reportCard,
             {
@@ -451,6 +458,68 @@ export default function ReportsScreen() {
           }
         />
       </View>
+
+      {/* ── Long-press preview modal ── */}
+      <Modal
+        visible={previewDate !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPreviewDate(null)}
+      >
+        <Pressable
+          style={styles.previewOverlay}
+          onPress={() => setPreviewDate(null)}
+        >
+          <View style={[styles.previewCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            {(() => {
+              const report = previewDate ? reports[previewDate] : null;
+              if (!report) {
+                return (
+                  <Text style={[styles.previewEmpty, { color: colors.textMuted }]}>
+                    Loading report data...
+                  </Text>
+                );
+              }
+              const trade = bestTradeLabel(report);
+              return (
+                <>
+                  <Text style={[styles.previewTitle, { color: colors.textHeading }]}>
+                    {previewDate ? formatDate(previewDate) : ''}
+                  </Text>
+                  {report.tickers.map((t) => {
+                    const iv = ivRankBadge(t.ivRank);
+                    return (
+                      <View key={t.symbol} style={[styles.previewTickerRow, { borderBottomColor: colors.border }]}>
+                        <Text style={[styles.previewSymbol, { color: colors.gold }]}>{t.symbol}</Text>
+                        <Text style={[styles.previewPrice, { color: colors.textHeading }]}>{formatDollar(t.price)}</Text>
+                        <Text style={[styles.previewChange, { color: t.changePct >= 0 ? colors.positive : colors.negative }]}>
+                          {formatPct(t.changePct)}
+                        </Text>
+                        <Badge label={iv.label} color={iv.color} />
+                      </View>
+                    );
+                  })}
+                  {trade && (
+                    <Text style={[styles.previewTrade, { color: colors.accent }]}>
+                      {'\u2605'} {trade}
+                    </Text>
+                  )}
+                  <TouchableOpacity
+                    style={[styles.previewOpenBtn, { backgroundColor: colors.accent }]}
+                    onPress={() => {
+                      setPreviewDate(null);
+                      router.push({ pathname: '/report/[date]', params: { date: previewDate! } });
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.previewOpenBtnText}>Open Full Report</Text>
+                  </TouchableOpacity>
+                </>
+              );
+            })()}
+          </View>
+        </Pressable>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -550,4 +619,47 @@ const styles = StyleSheet.create<Record<string, any>>({
   retryBtn: { paddingHorizontal: 28, paddingVertical: 12, borderRadius: 10, minHeight: 44, justifyContent: 'center' },
   retryText: { color: '#fff', fontWeight: '700', fontSize: 15 },
   emptyText: { textAlign: 'center', marginTop: 48, fontSize: 15 },
+
+  // Preview modal (long-press peek)
+  previewOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  previewCard: {
+    width: '100%',
+    maxWidth: 360,
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 20,
+  },
+  previewTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 14,
+    textAlign: 'center',
+  },
+  previewTickerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  previewSymbol: { fontSize: 14, fontWeight: '700', width: 50 },
+  previewPrice: { fontSize: 14, fontWeight: '600', width: 72 },
+  previewChange: { fontSize: 14, fontWeight: '600', width: 56, textAlign: 'right' },
+  previewTrade: { fontSize: 14, fontWeight: '700', marginTop: 10, textAlign: 'center' },
+  previewEmpty: { fontSize: 14, textAlign: 'center', paddingVertical: 24 },
+  previewOpenBtn: {
+    marginTop: 16,
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+    minHeight: 44,
+    justifyContent: 'center',
+  },
+  previewOpenBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
 });

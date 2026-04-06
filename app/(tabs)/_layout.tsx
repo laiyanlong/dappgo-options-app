@@ -7,6 +7,7 @@ import { ErrorBoundary } from '../../src/components/ui/ErrorBoundary';
 import { useWatchlistStore } from '../../src/store/watchlist-store';
 import { useAppStore } from '../../src/store/app-store';
 import { useSettingsStore } from '../../src/store/settings-store';
+import { trackEvent } from '../../src/data/analytics';
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -132,6 +133,7 @@ function TabNavigator() {
             <AnimatedTabLabel label="Dashboard" color={color} focused={focused} />
           ),
         }}
+        listeners={{ tabPress: () => trackEvent('tab_switch', { tab: 'Dashboard' }) }}
       />
       <Tabs.Screen
         name="reports"
@@ -145,6 +147,7 @@ function TabNavigator() {
             <AnimatedTabLabel label="Reports" color={color} focused={focused} />
           ),
         }}
+        listeners={{ tabPress: () => trackEvent('tab_switch', { tab: 'Reports' }) }}
       />
       <Tabs.Screen
         name="backtest"
@@ -158,6 +161,7 @@ function TabNavigator() {
             <AnimatedTabLabel label="Backtest" color={color} focused={focused} />
           ),
         }}
+        listeners={{ tabPress: () => trackEvent('tab_switch', { tab: 'Backtest' }) }}
       />
       <Tabs.Screen
         name="matrix"
@@ -171,6 +175,7 @@ function TabNavigator() {
             <AnimatedTabLabel label="Matrix" color={color} focused={focused} />
           ),
         }}
+        listeners={{ tabPress: () => trackEvent('tab_switch', { tab: 'Matrix' }) }}
       />
       <Tabs.Screen
         name="settings"
@@ -184,6 +189,7 @@ function TabNavigator() {
             <AnimatedTabLabel label="Settings" color={color} focused={focused} />
           ),
         }}
+        listeners={{ tabPress: () => trackEvent('tab_switch', { tab: 'Settings' }) }}
       />
     </Tabs>
   );

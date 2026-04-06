@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'expo-router';
 import {
   View,
@@ -26,6 +26,7 @@ import { SectionHeader } from '../../src/components/ui/SectionHeader';
 import { StrikeCard, calculateStarRating } from '../../src/components/trade/StrikeCard';
 import { formatDollar, formatDate, daysUntil } from '../../src/utils/format';
 import { EmptyState } from '../../src/components/ui/EmptyState';
+import { trackEvent } from '../../src/data/analytics';
 import type { OptionEntry, StrikeComparison } from '../../src/utils/types';
 
 // ── Supported tickers (extend as matrix data grows) ──
@@ -65,6 +66,11 @@ export default function MatrixScreen() {
   const [typeIndex, setTypeIndex] = useState(0);
   const [loading, setLoading] = useState(false);
 
+  // Track matrix view on mount
+  useEffect(() => {
+    trackEvent('matrix_view');
+  }, []);
+
   // Auto-fetch if no matrix data for selected ticker
   useEffect(() => {
     if (!matrices[selectedTicker] && !loading) {
@@ -93,6 +99,9 @@ export default function MatrixScreen() {
         .finally(() => setLoading(false));
     }
   }, [selectedTicker, matrices]);
+
+  // Ref for auto-scrolling to best strike
+  const strikesListRef = useRef<FlatList>(null);
 
   const [refreshing, setRefreshing] = useState(false);
 
@@ -149,6 +158,18 @@ export default function MatrixScreen() {
       return null;
     }
   }, [strikes]);
+
+  // Auto-scroll to best strike when data loads or expiry changes
+  useEffect(() => {
+    if (bestStrike && strikes.length > 0) {
+      const idx = strikes.findIndex((s) => s.strike === bestStrike.strike);
+      if (idx > 0) {
+        setTimeout(() => {
+          strikesListRef.current?.scrollToIndex({ index: idx, animated: true, viewPosition: 0.3 });
+        }, 300);
+      }
+    }
+  }, [bestStrike, strikes]);
 
   // ── Backtest action ──
   const addToPortfolio = useBacktestStore((s) => s.addToPortfolio);
@@ -430,6 +451,7 @@ export default function MatrixScreen() {
 
       {/* ── Scrollable strikes list ── */}
       <FlatList
+        ref={strikesListRef}
         data={strikes}
         renderItem={renderStrikeCard}
         keyExtractor={keyExtractor}

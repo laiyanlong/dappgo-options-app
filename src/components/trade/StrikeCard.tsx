@@ -9,6 +9,7 @@ import { formatDollar, formatVolume } from '../../utils/format';
 import { useWatchlistStore } from '../../store/watchlist-store';
 import { useCompareStore } from '../../store/compare-store';
 import { useSettingsStore } from '../../store/settings-store';
+import { trackEvent } from '../../data/analytics';
 import type { OptionEntry } from '../../utils/types';
 
 interface StrikeCardProps {
@@ -97,6 +98,7 @@ export const StrikeCard = React.memo(function StrikeCard({
     if (isInCompare) {
       removeItem(symbol, entry.strike);
     } else {
+      trackEvent('compare_add', { symbol, strike: entry.strike });
       addItem({
         symbol,
         strike: entry.strike,
@@ -129,6 +131,7 @@ export const StrikeCard = React.memo(function StrikeCard({
     if (isInWatchlist) {
       removeByKey(symbol, entry.strike);
     } else {
+      trackEvent('watchlist_add', { symbol, strike: entry.strike });
       addWatchItem({ symbol, strategy, strike: entry.strike, expiry });
       // Show first-time tooltip
       if (!hasSeenWatchlistTip) {

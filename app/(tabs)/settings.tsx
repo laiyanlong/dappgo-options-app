@@ -28,6 +28,8 @@ import { watchlistToShareText } from '../../src/utils/export';
 import { AppVersion } from '../../src/components/ui/AppVersion';
 import { useAppStore } from '../../src/store/app-store';
 import { getSecureKey, setSecureKey } from '../../src/data/secure-keys';
+import { getUsageStats } from '../../src/data/analytics';
+import { requestPermissions, scheduleDailyReminder, cancelDailyReminder } from '../../src/data/notifications';
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -48,6 +50,13 @@ export default function SettingsScreen() {
   const [geminiApiKey, setGeminiApiKeyLocal] = useState('');
   const [alphaVantageKey, setAlphaVantageKeyLocal] = useState('');
 
+  // Usage analytics stats
+  const [usageStats, setUsageStats] = useState<{
+    totalSessions: number;
+    mostUsedTab: string;
+    backtestRuns: number;
+  }>({ totalSessions: 0, mostUsedTab: 'Dashboard', backtestRuns: 0 });
+
   // Data stats
   const [cacheKeyCount, setCacheKeyCount] = useState(0);
   const backtestCount = useBacktestStore((s) => s.savedResults.length);
@@ -61,6 +70,8 @@ export default function SettingsScreen() {
     getSecureKey('alphaVantageKey').then(setAlphaVantageKeyLocal);
     // Count AsyncStorage keys for cache size
     AsyncStorage.getAllKeys().then((keys) => setCacheKeyCount(keys.length));
+    // Load usage analytics
+    getUsageStats().then((stats) => setUsageStats(stats));
   }, []);
 
   const handleGeminiKeyChange = (value: string) => {
@@ -359,7 +370,23 @@ export default function SettingsScreen() {
                 <Text style={[styles.switchLabel, { color: colors.textHeading }]}>{item.label}</Text>
                 <Switch
                   value={settings.notifications[item.key]}
-                  onValueChange={(v) => settings.setNotification(item.key, v)}
+                  onValueChange={async (v) => {
+                    settings.setNotification(item.key, v);
+                    // Wire dailyReport toggle to local notifications
+                    if (item.key === 'dailyReport') {
+                      if (v) {
+                        const granted = await requestPermissions();
+                        if (granted) {
+                          await scheduleDailyReminder(9, 0);
+                        } else {
+                          Alert.alert('Permissions Required', 'Please enable notifications in your device settings.');
+                          settings.setNotification('dailyReport', false);
+                        }
+                      } else {
+                        await cancelDailyReminder();
+                      }
+                    }
+                  }}
                   trackColor={{ false: colors.border, true: colors.accent + '80' }}
                   thumbColor={settings.notifications[item.key] ? colors.accent : colors.tabInactive}
                   accessibilityLabel={`Toggle ${item.label}`}
@@ -373,6 +400,9 @@ export default function SettingsScreen() {
         <Text style={[styles.sectionHeader, { color: colors.textMuted }]}>DATA</Text>
         <Card>
           {[
+            { label: 'Sessions', value: `${usageStats.totalSessions}`, icon: 'pulse-outline' as IoniconsName },
+            { label: 'Most Used', value: usageStats.mostUsedTab, icon: 'star-outline' as IoniconsName },
+            { label: 'Backtests Run', value: `${usageStats.backtestRuns}`, icon: 'flask-outline' as IoniconsName },
             { label: 'Cache Size', value: `${cacheKeyCount} keys`, icon: 'server-outline' as IoniconsName },
             { label: 'Backtest History', value: `${backtestCount} saved`, icon: 'trending-up-outline' as IoniconsName },
             { label: 'Watchlist Items', value: `${watchlistCount} items`, icon: 'bookmark-outline' as IoniconsName },

@@ -22,6 +22,7 @@ import { Card } from '../../src/components/ui/Card';
 import { Badge } from '../../src/components/ui/Badge';
 import { SegmentedControl } from '../../src/components/ui/SegmentedControl';
 import { useBacktestStore } from '../../src/store/backtest-store';
+import { trackEvent } from '../../src/data/analytics';
 import type { DailyReport, TickerReport } from '../../src/utils/types';
 
 const TABS = ['Overview', 'Options', 'Strategy', 'Model', 'AI'];
@@ -326,6 +327,7 @@ export default function ReportDetailScreen() {
 
   useEffect(() => {
     loadFull();
+    if (date) trackEvent('report_view', { date });
   }, [date]);
 
   // ── Section content for each tab ──

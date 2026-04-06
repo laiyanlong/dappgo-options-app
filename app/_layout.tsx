@@ -14,6 +14,7 @@ import { NetworkBanner } from '../src/components/ui/NetworkBanner';
 import { useSettingsStore } from '../src/store/settings-store';
 import { useBacktestStore } from '../src/store/backtest-store';
 import { useWatchlistStore } from '../src/store/watchlist-store';
+import { trackEvent } from '../src/data/analytics';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -91,6 +92,11 @@ function RootLayoutNav() {
   useEffect(() => {
     const cleanup = startAutoRefresh();
     return cleanup;
+  }, []);
+
+  // Track app_open event
+  useEffect(() => {
+    trackEvent('app_open');
   }, []);
 
   return (

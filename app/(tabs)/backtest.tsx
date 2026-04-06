@@ -36,6 +36,7 @@ import {
 import { formatDollar } from '../../src/utils/format';
 import { backtestToShareText, backtestToCsv } from '../../src/utils/export';
 import { EmptyState } from '../../src/components/ui/EmptyState';
+import { trackEvent } from '../../src/data/analytics';
 import type { BacktestInput, BacktestResult } from '../../src/utils/types';
 
 // Enable LayoutAnimation on Android
@@ -155,6 +156,7 @@ export default function BacktestScreen() {
 
   // ── Run single backtest (simple mode) ──
   const runSimple = useCallback(() => {
+    trackEvent('backtest_run', { symbol: simpleInput.symbol, strategy: simpleInput.strategy });
     setComputing(true);
     clearResults();
     // Use setTimeout to let the UI show the loading state
@@ -213,6 +215,21 @@ export default function BacktestScreen() {
     setNewStrike('');
     setNewExpiry('');
   }, [newTicker, newStrategy, newStrike, newExpiry, addToPortfolio]);
+
+  // ── Recent backtested symbols (last 3 unique) ──
+  const recentSymbols = useMemo(() => {
+    const seen = new Set<string>();
+    const result: string[] = [];
+    // Iterate savedResults in reverse to get most recent first
+    for (let i = savedResults.length - 1; i >= 0 && result.length < 3; i--) {
+      const sym = savedResults[i].input.symbol;
+      if (!seen.has(sym)) {
+        seen.add(sym);
+        result.push(sym);
+      }
+    }
+    return result;
+  }, [savedResults]);
 
   // ── Best pick logic ──
   const bestPick = useMemo(() => {
@@ -294,6 +311,22 @@ export default function BacktestScreen() {
                 );
               })}
             </View>
+            {/* Recent symbols quick access */}
+            {recentSymbols.length > 0 && (
+              <View style={styles.recentRow}>
+                <Text style={[styles.recentLabel, { color: colors.textMuted }]}>Recent:</Text>
+                {recentSymbols.map((sym) => (
+                  <TouchableOpacity
+                    key={sym}
+                    onPress={() => setSimpleInput({ symbol: sym })}
+                    activeOpacity={0.7}
+                    style={styles.recentChip}
+                  >
+                    <Text style={[styles.recentChipText, { color: colors.accent }]}>{sym}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
           </Card>
 
           {/* Strategy chips */}
@@ -843,6 +876,7 @@ export default function BacktestScreen() {
               onPress={async () => {
                 try {
                   const text = results.map((r) => backtestToShareText(r)).join('\n\n');
+                  trackEvent('share', { type: 'backtest_results' });
                   await Share.share({ message: text, title: 'DappGo Backtest Results' });
                 } catch {}
               }}
@@ -1098,6 +1132,12 @@ const styles = StyleSheet.create<Record<string, any>>({
   },
   title: { fontSize: 30, fontWeight: '700', letterSpacing: -1, marginTop: 8, marginBottom: 2 },
   subtitle: { fontSize: 14 },
+
+  // Recent symbols quick access
+  recentRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10, paddingTop: 8, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#232345' },
+  recentLabel: { fontSize: 13, fontWeight: '500' },
+  recentChip: { paddingHorizontal: 10, paddingVertical: 4 },
+  recentChipText: { fontSize: 14, fontWeight: '600' },
 
   // Chips — 44pt minimum touch target, pill style matching Reports
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 },
