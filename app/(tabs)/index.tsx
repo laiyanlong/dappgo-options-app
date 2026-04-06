@@ -21,6 +21,7 @@ import { formatDollar, formatPct, formatStrategy } from '../../src/utils/format'
 import { mapTslaMatrix } from '../../src/data/mappers';
 import { probabilityOfProfit } from '../../src/engine/pop';
 import { SparkLine } from '../../src/components/charts/SparkLine';
+import { StockChart } from '../../src/components/charts/StockChart';
 import { TickerTape } from '../../src/components/charts/TickerTape';
 import { Card } from '../../src/components/ui/Card';
 import { SectionHeader } from '../../src/components/ui/SectionHeader';
@@ -283,6 +284,7 @@ export default function DashboardScreen() {
 
   const [error, setError] = useState<string | null>(null);
   const [showRefreshBanner, setShowRefreshBanner] = useState(false);
+  const [chartTicker, setChartTicker] = useState<string>('TSLA');
   const refreshBannerKey = useRef(0);
 
   const loadData = useCallback(async () => {
@@ -609,6 +611,56 @@ export default function DashboardScreen() {
               initialNumToRender={5}
               maxToRenderPerBatch={5}
             />
+          </View>
+        </FadeIn>
+      )}
+
+      {/* ── Stock Chart Section ── */}
+      {livePrices.length > 0 && (
+        <FadeIn delay={100}>
+          <View style={styles.section}>
+            <SectionHeader title={'\uD83D\uDCC8 Chart'} />
+            {/* Ticker selector pills */}
+            <View style={styles.chartTickerRow}>
+              {livePrices.map((lp) => (
+                <TouchableOpacity
+                  key={lp.symbol}
+                  style={[
+                    styles.chartTickerPill,
+                    {
+                      backgroundColor: chartTicker === lp.symbol ? colors.accent : colors.backgroundAlt,
+                      borderColor: chartTicker === lp.symbol ? colors.accent : colors.border,
+                    },
+                  ]}
+                  activeOpacity={0.7}
+                  onPress={() => setChartTicker(lp.symbol)}
+                >
+                  <Text
+                    style={[
+                      styles.chartTickerText,
+                      { color: chartTicker === lp.symbol ? '#fff' : colors.textMuted },
+                    ]}
+                  >
+                    {lp.symbol}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            {/* Chart */}
+            {(() => {
+              const selected = livePrices.find((lp) => lp.symbol === chartTicker) ?? livePrices[0];
+              if (!selected) return null;
+              const isPos = selected.change_pct >= 0;
+              return (
+                <StockChart
+                  symbol={selected.symbol}
+                  currentPrice={selected.price}
+                  intradayPrices={selected.intraday_prices}
+                  color={isPos ? colors.positive : colors.negative}
+                  height={280}
+                />
+              );
+            })()}
           </View>
         </FadeIn>
       )}
@@ -1040,6 +1092,27 @@ const styles = StyleSheet.create<Record<string, any>>({
   watchlistExpiry: {
     ...typography.small,
     marginTop: 2,
+  },
+
+  // Chart section
+  chartTickerRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
+    flexWrap: 'wrap',
+  },
+  chartTickerPill: {
+    height: 36,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.round,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  chartTickerText: {
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.8,
   },
 
   // Top picks carousel
