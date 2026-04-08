@@ -539,6 +539,8 @@ export default function ReportsScreen() {
               }}
               onDismiss={() => dismissCard(insightCards[0].id)}
               accentColor={colors.accent}
+              stackBehind={Math.min(insightCards.length - 1, 2)}
+              dismissHint={t('reports.dismissHint')}
             />
           </View>
         )}

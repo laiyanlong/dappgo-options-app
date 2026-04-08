@@ -41,6 +41,7 @@ const strings: Record<string, Record<Lang, string>> = {
   'reports.openFull': { en: 'Open Full Report', zh: '開啟完整報告' },
   'reports.loadingData': { en: 'Loading report data...', zh: '載入報告數據...' },
   'reports.insightOf': { en: 'of', zh: '/' },
+  'reports.dismissHint': { en: '✕ dismiss to see next', zh: '✕ 關閉以查看下一張' },
   'reports.noReports': { en: 'No reports found', zh: '找不到報告' },
   'reports.noReportsHint': { en: 'Try adjusting your filters or pull down to refresh', zh: '嘗試調整篩選條件或下拉重新整理' },
 
