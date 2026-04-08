@@ -1196,7 +1196,7 @@ function SwipeToDeleteCard({
           borderBottomRightRadius: 12,
         }}
       >
-        <Ionicons name="trash-outline" size={22} color="#fff" />
+        <Text style={{ fontSize: 20 }}>{'\uD83D\uDDD1'}</Text>
         <Text style={{ color: '#fff', fontSize: 11, fontWeight: '600', marginTop: 2 }}>Delete</Text>
       </TouchableOpacity>
 
