@@ -17,8 +17,11 @@ interface SettingsState {
   };
   lastViewedReportCount: number;
   lastViewedMatrixCount: number;
+  viewedReportDates: string[];
   setLastViewedReportCount: (count: number) => void;
   setLastViewedMatrixCount: (count: number) => void;
+  markReportViewed: (date: string) => void;
+  isReportViewed: (date: string) => boolean;
   setThemeMode: (mode: 'dark' | 'light' | 'auto') => void;
   setLanguage: (lang: 'zh' | 'en') => void;
   setTickers: (tickers: string[]) => void;
@@ -48,8 +51,17 @@ export const useSettingsStore = create<SettingsState>()(
       },
       lastViewedReportCount: 0,
       lastViewedMatrixCount: 0,
+      viewedReportDates: [],
       setLastViewedReportCount: (count) => set({ lastViewedReportCount: count }),
       setLastViewedMatrixCount: (count) => set({ lastViewedMatrixCount: count }),
+      markReportViewed: (date) =>
+        set((s) => ({
+          viewedReportDates: s.viewedReportDates.includes(date)
+            ? s.viewedReportDates
+            : [...s.viewedReportDates, date],
+        })),
+      isReportViewed: (date) =>
+        get().viewedReportDates.includes(date),
       setThemeMode: (mode) => set({ themeMode: mode }),
       setLanguage: (lang) => set({ language: lang }),
       setTickers: (tickers) => set({ tickers }),

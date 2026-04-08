@@ -120,6 +120,8 @@ export default function ReportsScreen() {
 
   // Settings (for badge tracking)
   const setLastViewedReportCount = useSettingsStore((s) => s.setLastViewedReportCount);
+  const viewedDates = useSettingsStore((s) => s.viewedReportDates);
+  const markViewed = useSettingsStore((s) => s.markReportViewed);
 
   // Preview modal state (long-press peek)
   const [previewDate, setPreviewDate] = useState<string | null>(null);
@@ -265,10 +267,18 @@ export default function ReportsScreen() {
       const direction = reportMarketDirection(report);
       const barColor = direction === 'up' ? colors.positive : direction === 'down' ? colors.negative : colors.border;
 
+      // Unread logic: unread if not in viewedDates AND less than 3 days old
+      const daysDiff = Math.floor((Date.now() - new Date(date + 'T00:00:00').getTime()) / 86400000);
+      const isViewed = viewedDates.includes(date) || daysDiff > 3;
+      const isUnread = !isViewed;
+
       return (
         <TouchableOpacity
-          activeOpacity={0.8}
-          onPress={() => router.push({ pathname: '/report/[date]', params: { date } })}
+          activeOpacity={0.6}
+          onPress={() => {
+            markViewed(date);
+            router.push({ pathname: '/report/[date]', params: { date } });
+          }}
           onLongPress={() => setPreviewDate(date)}
           delayLongPress={400}
           style={[
@@ -279,8 +289,19 @@ export default function ReportsScreen() {
             },
           ]}
         >
-          {/* Colored left edge bar */}
-          <View style={[styles.leftBar, { backgroundColor: barColor }]} />
+          {/* Colored left edge bar — thicker + accent glow for unread */}
+          <View style={[
+            styles.leftBar,
+            { backgroundColor: isUnread ? colors.accent : barColor },
+            isUnread && { width: 4 },
+          ]} />
+
+          {/* Unread badge */}
+          {isUnread && (
+            <View style={[styles.unreadBadge, { backgroundColor: colors.accent }]}>
+              <Text style={styles.unreadText}>NEW</Text>
+            </View>
+          )}
 
           <View style={styles.reportCardContent}>
             {/* Header row */}
@@ -594,7 +615,22 @@ const styles = StyleSheet.create<Record<string, any>>({
     overflow: 'hidden',
   },
   leftBar: {
-    width: 4,
+    width: 3,
+  },
+  unreadBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    zIndex: 1,
+  },
+  unreadText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
   reportCardContent: {
     flex: 1,
