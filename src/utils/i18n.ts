@@ -40,6 +40,7 @@ const strings: Record<string, Record<Lang, string>> = {
   'reports.loadingHint': { en: 'Fetching daily options analysis', zh: '取得每日選擇權分析' },
   'reports.openFull': { en: 'Open Full Report', zh: '開啟完整報告' },
   'reports.loadingData': { en: 'Loading report data...', zh: '載入報告數據...' },
+  'reports.insightOf': { en: 'of', zh: '/' },
   'reports.noReports': { en: 'No reports found', zh: '找不到報告' },
   'reports.noReportsHint': { en: 'Try adjusting your filters or pull down to refresh', zh: '嘗試調整篩選條件或下拉重新整理' },
 
@@ -73,6 +74,14 @@ const strings: Record<string, Record<Lang, string>> = {
   'matrix.loadingOptions': { en: 'Loading Options Data...', zh: '載入選擇權數據...' },
   'matrix.loadingHint': { en: 'Fetching live options chains\nfrom the market.', zh: '正在從市場取得\n即時選擇權鏈。' },
   'matrix.clearAll': { en: 'Clear All', zh: '全部清除' },
+  'matrix.oiDistribution': { en: 'OI Distribution', zh: 'OI 分佈' },
+  'matrix.support': { en: 'Support', zh: '支撐' },
+  'matrix.resistance': { en: 'Resistance', zh: '壓力' },
+  'matrix.hotToday': { en: 'Hot Today', zh: '今日熱門' },
+  'matrix.pcRatio': { en: 'P/C Ratio', zh: 'P/C 比' },
+  'matrix.bullish': { en: 'Bullish', zh: '偏多' },
+  'matrix.bearish': { en: 'Bearish', zh: '偏空' },
+  'matrix.neutral': { en: 'Neutral', zh: '中性' },
 
   // Settings
   'settings.title': { en: 'Settings', zh: '設定' },

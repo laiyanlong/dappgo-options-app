@@ -247,17 +247,17 @@ export default function ReportsScreen() {
   }, [reportDates, reports, tickerFilter, dateRange, debouncedQuery]);
 
   // ── Insight cards from latest report (dynamic — only sections with content) ──
-  const insightCards = useMemo(() => {
-    if (reportDates.length === 0) return [];
+  const { cards: insightCards, total: totalInsightCards } = useMemo(() => {
+    if (reportDates.length === 0) return { cards: [], total: 0 };
     const latestDate = reportDates[0];
     const latestReport = reports[latestDate];
-    if (!latestReport) return [];
+    if (!latestReport) return { cards: [], total: 0 };
 
     // Get parsed sections from the raw markdown if available
     const sections = (latestReport as any)._sections as Record<string, string> | undefined;
-    if (!sections) return [];
+    if (!sections) return { cards: [], total: 0 };
 
-    const cards: Array<{ id: string; icon: string; title: string; content: string; linkText: string; tab: number }> = [];
+    const allCards: Array<{ id: string; icon: string; title: string; content: string; linkText: string; tab: number }> = [];
 
     // Extract first meaningful paragraph from a section
     const extractSummary = (text: string, maxLen = 120): string => {
@@ -276,25 +276,26 @@ export default function ReportsScreen() {
 
     const optionsContent = findSection(['選擇權', 'options', '核心表格']);
     if (optionsContent) {
-      cards.push({ id: `options-${latestDate}`, icon: '📊', title: t('report.options'), content: extractSummary(optionsContent), linkText: t('report.options') + ' →', tab: 1 });
+      allCards.push({ id: `options-${latestDate}`, icon: '📊', title: t('report.options'), content: extractSummary(optionsContent), linkText: t('report.options') + ' →', tab: 1 });
     }
 
     const strategyContent = findSection(['策略', 'strategy', '多腳']);
     if (strategyContent) {
-      cards.push({ id: `strategy-${latestDate}`, icon: '🎯', title: t('report.strategy'), content: extractSummary(strategyContent), linkText: t('report.strategy') + ' →', tab: 2 });
+      allCards.push({ id: `strategy-${latestDate}`, icon: '🎯', title: t('report.strategy'), content: extractSummary(strategyContent), linkText: t('report.strategy') + ' →', tab: 2 });
     }
 
     const modelContent = findSection(['模型', 'model', '綜合評價']);
     if (modelContent) {
-      cards.push({ id: `model-${latestDate}`, icon: '🧠', title: t('report.model'), content: extractSummary(modelContent), linkText: t('report.model') + ' →', tab: 3 });
+      allCards.push({ id: `model-${latestDate}`, icon: '🧠', title: t('report.model'), content: extractSummary(modelContent), linkText: t('report.model') + ' →', tab: 3 });
     }
 
     const aiContent = findSection(['ai', 'gemini', '市場解讀']);
     if (aiContent) {
-      cards.push({ id: `ai-${latestDate}`, icon: '🤖', title: 'AI', content: extractSummary(aiContent), linkText: 'AI →', tab: 4 });
+      allCards.push({ id: `ai-${latestDate}`, icon: '🤖', title: 'AI', content: extractSummary(aiContent), linkText: 'AI →', tab: 4 });
     }
 
-    return cards.filter(c => !dismissedCards.includes(c.id));
+    const visibleCards = allCards.filter(c => !dismissedCards.includes(c.id));
+    return { cards: visibleCards, total: allCards.length };
   }, [reportDates, reports, dismissedCards, t]);
 
   // ── Stable key extractor ──
@@ -507,30 +508,35 @@ export default function ReportsScreen() {
           )}
         </View>
 
-        {/* ── Insight Cards (dynamic from latest report) ── */}
+        {/* ── Insight Cards (stacked — show one at a time) ── */}
         {insightCards.length > 0 && (
           <View style={{ paddingHorizontal: 16, marginBottom: 8 }}>
-            <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>
-              {t('reports.todayInsights') || "TODAY'S INSIGHTS"}
-            </Text>
-            {insightCards.map((card) => (
-              <InsightCard
-                key={card.id}
-                icon={card.icon}
-                title={card.title}
-                content={card.content}
-                linkText={card.linkText}
-                onPress={() => {
-                  const latestDate = reportDates[0];
-                  if (latestDate) {
-                    markViewed(latestDate);
-                    router.push({ pathname: '/report/[date]', params: { date: latestDate } });
-                  }
-                }}
-                onDismiss={() => dismissCard(card.id)}
-                accentColor={colors.accent}
-              />
-            ))}
+            <View style={styles.insightHeader}>
+              <Text style={[styles.sectionLabel, { color: colors.textMuted, marginBottom: 0 }]}>
+                {t('reports.todayInsights') || "TODAY'S INSIGHTS"}
+              </Text>
+              {totalInsightCards > 1 && (
+                <Text style={[styles.insightCounter, { color: colors.textMuted }]}>
+                  {totalInsightCards - insightCards.length + 1}/{totalInsightCards}
+                </Text>
+              )}
+            </View>
+            <InsightCard
+              key={insightCards[0].id}
+              icon={insightCards[0].icon}
+              title={insightCards[0].title}
+              content={insightCards[0].content}
+              linkText={insightCards[0].linkText}
+              onPress={() => {
+                const latestDate = reportDates[0];
+                if (latestDate) {
+                  markViewed(latestDate);
+                  router.push({ pathname: '/report/[date]', params: { date: latestDate } });
+                }
+              }}
+              onDismiss={() => dismissCard(insightCards[0].id)}
+              accentColor={colors.accent}
+            />
           </View>
         )}
 
@@ -682,6 +688,20 @@ const styles = StyleSheet.create<Record<string, any>>({
     flex: 1,
     fontSize: 16,
     paddingVertical: 0,
+  },
+
+  // Insight header (title + counter)
+  insightHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+    marginTop: 8,
+  },
+  insightCounter: {
+    fontSize: 12,
+    fontWeight: '600',
+    fontVariant: ['tabular-nums'] as any,
   },
 
   // List

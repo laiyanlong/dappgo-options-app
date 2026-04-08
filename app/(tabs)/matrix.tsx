@@ -72,6 +72,7 @@ export default function MatrixScreen() {
   const matrices = useAppStore((s) => s.matrices);
   const setMatrix = useAppStore((s) => s.setMatrix);
   const setDashboardData = useAppStore((s) => s.setDashboardData);
+  const dashboardData = useAppStore((s) => s.dashboardData);
   const quotes = useAppStore((s) => s.quotes);
 
   // ── Compare store ──
@@ -182,6 +183,27 @@ export default function MatrixScreen() {
   const activeExpiry = expiries[selectedExpiryIdx] ?? null;
   const optionType = typeIndex === 0 ? 'puts' : 'calls';
   const strikes: OptionEntry[] = activeExpiry?.[optionType] ?? [];
+
+  // ── OI distribution data for selected ticker ──
+  const oiData = useMemo(() => {
+    const dist = (dashboardData as Record<string, any>)?.oi_distribution;
+    if (!dist) return null;
+    const tickerOi = dist[selectedTicker];
+    if (!tickerOi) return null;
+    return tickerOi as {
+      price: number;
+      key_levels: {
+        max_put_oi_strike: number;
+        max_call_oi_strike: number;
+        max_pain: number;
+        highest_volume_strike: number;
+      };
+      put_concentration: Array<{ strike: number; oi: number; volume: number; iv: number; distance_pct: number }>;
+      call_concentration: Array<{ strike: number; oi: number; volume: number; iv: number; distance_pct: number }>;
+      pc_oi_ratio: number;
+      interpretation: string;
+    };
+  }, [dashboardData, selectedTicker]);
 
   // ── Find best strike (highest annualized among good-spread options) ──
   const bestStrike = useMemo(() => {
@@ -468,6 +490,89 @@ export default function MatrixScreen() {
         />
       </View>
 
+      {/* ── OI Distribution (compact) ── */}
+      {oiData && (() => {
+        const kl = oiData.key_levels;
+        // Find support (max put OI) details
+        const supportEntry = oiData.put_concentration?.find((p: any) => p.strike === kl.max_put_oi_strike);
+        // Find resistance (max call OI) details
+        const resistEntry = oiData.call_concentration?.find((c: any) => c.strike === kl.max_call_oi_strike);
+        // Find highest volume strike details
+        const allConc = [...(oiData.put_concentration ?? []), ...(oiData.call_concentration ?? [])];
+        const hotEntry = allConc.find((e: any) => e.strike === kl.highest_volume_strike);
+        const pcr = oiData.pc_oi_ratio;
+        const pcrLabel = pcr < 0.7 ? t('matrix.bullish') : pcr > 1.3 ? t('matrix.bearish') : t('matrix.neutral');
+        const fmtOi = (n: number) => n >= 1000 ? `${(n / 1000).toFixed(1)}K` : `${n}`;
+
+        return (
+          <View style={[styles.oiSection, { borderColor: colors.border }]}>
+            <Text style={[styles.oiTitle, { color: colors.textMuted }]}>
+              {t('matrix.oiDistribution')}
+            </Text>
+            <View style={styles.oiGrid}>
+              {/* Support */}
+              <View style={styles.oiRow}>
+                <Text style={styles.oiIcon}>{'\uD83D\uDEE1\uFE0F'}</Text>
+                <Text style={[styles.oiLabel, { color: colors.textMuted }]}>{t('matrix.support')}</Text>
+                <Text style={[styles.oiValue, { color: colors.positive }]}>
+                  {formatDollar(kl.max_put_oi_strike)}
+                </Text>
+                <Text style={[styles.oiStat, { color: colors.textMuted }]}>
+                  {supportEntry ? `${fmtOi(supportEntry.oi)} OI` : ''}
+                </Text>
+                <Text style={[styles.oiDist, { color: colors.textMuted }]}>
+                  {supportEntry ? `${supportEntry.distance_pct > 0 ? '+' : ''}${supportEntry.distance_pct.toFixed(1)}%` : ''}
+                </Text>
+              </View>
+              {/* Resistance */}
+              <View style={styles.oiRow}>
+                <Text style={styles.oiIcon}>{'\uD83D\uDEA7'}</Text>
+                <Text style={[styles.oiLabel, { color: colors.textMuted }]}>{t('matrix.resistance')}</Text>
+                <Text style={[styles.oiValue, { color: colors.negative }]}>
+                  {formatDollar(kl.max_call_oi_strike)}
+                </Text>
+                <Text style={[styles.oiStat, { color: colors.textMuted }]}>
+                  {resistEntry ? `${fmtOi(resistEntry.oi)} OI` : ''}
+                </Text>
+                <Text style={[styles.oiDist, { color: colors.textMuted }]}>
+                  {resistEntry ? `${resistEntry.distance_pct > 0 ? '+' : ''}${resistEntry.distance_pct.toFixed(1)}%` : ''}
+                </Text>
+              </View>
+              {/* Hot Today */}
+              <View style={styles.oiRow}>
+                <Text style={styles.oiIcon}>{'\uD83D\uDD25'}</Text>
+                <Text style={[styles.oiLabel, { color: colors.textMuted }]}>{t('matrix.hotToday')}</Text>
+                <Text style={[styles.oiValue, { color: colors.textHeading }]}>
+                  {formatDollar(kl.highest_volume_strike)}
+                </Text>
+                <Text style={[styles.oiStat, { color: colors.textMuted }]}>
+                  {hotEntry ? `${fmtOi(hotEntry.volume)} vol` : ''}
+                </Text>
+                <Text style={styles.oiDist} />
+              </View>
+              {/* P/C Ratio */}
+              <View style={styles.oiRow}>
+                <Text style={styles.oiIcon}>{'\uD83D\uDCCA'}</Text>
+                <Text style={[styles.oiLabel, { color: colors.textMuted }]}>{t('matrix.pcRatio')}</Text>
+                <Text style={[styles.oiValue, { color: colors.textHeading }]}>
+                  {pcr.toFixed(2)}
+                </Text>
+                <Text style={[styles.oiStat, { color: pcr < 0.7 ? colors.positive : pcr > 1.3 ? colors.negative : colors.textMuted }]}>
+                  ({pcrLabel})
+                </Text>
+                <Text style={styles.oiDist} />
+              </View>
+            </View>
+            {/* Interpretation */}
+            {oiData.interpretation ? (
+              <Text style={[styles.oiInterpretation, { color: colors.textMuted }]} numberOfLines={2}>
+                {oiData.interpretation}
+              </Text>
+            ) : null}
+          </View>
+        );
+      })()}
+
       {/* ── Strike count — fixed height row ── */}
       <View style={styles.countRow}>
         <Text style={[styles.countLabel, { color: colors.textMuted }]}>
@@ -483,7 +588,7 @@ export default function MatrixScreen() {
     </>
   ), [
     colors, router, selectedTicker, loading, currentPrice,
-    expiries, selectedExpiryIdx, typeIndex, strikes, bestStrike, matrix, t,
+    expiries, selectedExpiryIdx, typeIndex, strikes, bestStrike, matrix, t, oiData,
   ]);
 
   // ── Empty state — rendered inside FlatList so the stable header stays put ──
@@ -937,6 +1042,66 @@ const styles = StyleSheet.create<Record<string, any>>({
     fontSize: 12,
     fontWeight: '500',
     lineHeight: 18,
+  },
+
+  // OI Distribution section
+  oiSection: {
+    marginHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 4,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderRadius: 10,
+  },
+  oiTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    marginBottom: 6,
+  },
+  oiGrid: {
+    gap: 2,
+  },
+  oiRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 22,
+    gap: 4,
+  },
+  oiIcon: {
+    fontSize: 12,
+    width: 18,
+    textAlign: 'center',
+  },
+  oiLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    width: 68,
+  },
+  oiValue: {
+    fontSize: 13,
+    fontWeight: '700',
+    fontVariant: ['tabular-nums'] as any,
+    width: 56,
+  },
+  oiStat: {
+    fontSize: 11,
+    fontVariant: ['tabular-nums'] as any,
+    width: 60,
+  },
+  oiDist: {
+    fontSize: 11,
+    fontVariant: ['tabular-nums'] as any,
+    width: 40,
+    textAlign: 'right',
+  },
+  oiInterpretation: {
+    fontSize: 11,
+    fontStyle: 'italic',
+    marginTop: 4,
+    lineHeight: 15,
   },
 
   // Floating compare bar
