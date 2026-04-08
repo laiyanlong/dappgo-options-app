@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppStore } from '../../store/app-store';
+import { useT } from '../../utils/i18n';
 
 /**
  * Red banner shown at top of screen when network is offline.
@@ -10,13 +11,14 @@ import { useAppStore } from '../../store/app-store';
 export function NetworkBanner() {
   const insets = useSafeAreaInsets();
   const networkStatus = useAppStore((s) => s.networkStatus);
+  const t = useT();
 
   if (networkStatus !== 'offline') return null;
 
   return (
     <View style={[styles.banner, { paddingTop: insets.top + 4 }]}>
       <Text style={styles.text}>
-        {'\u26A0\uFE0F'} Offline — showing cached data
+        {'\u26A0\uFE0F'} {t('common.offline')}
       </Text>
     </View>
   );

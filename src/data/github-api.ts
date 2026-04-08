@@ -44,6 +44,10 @@ export async function fetchDashboardData(
   const resp = await fetch(url, {
     headers: { Accept: 'application/vnd.github.v3.raw' },
   });
-  if (!resp.ok) throw new Error(`Dashboard data not found`);
+  if (!resp.ok) {
+    if (resp.status === 403) throw new Error('GitHub API rate limit reached. Try again in a few minutes.');
+    if (resp.status === 404) throw new Error('Dashboard data not found. Check repository settings.');
+    throw new Error(`Failed to load data (HTTP ${resp.status})`);
+  }
   return resp.json();
 }

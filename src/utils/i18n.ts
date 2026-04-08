@@ -127,6 +127,8 @@ const strings: Record<string, Record<Lang, string>> = {
   'common.save': { en: 'Save', zh: '儲存' },
   'common.backtest': { en: 'Backtest', zh: '回測' },
   'common.report': { en: 'Report', zh: '報告' },
+  'common.offline': { en: 'Offline — showing cached data', zh: '離線中 — 顯示快取數據' },
+  'common.rateLimited': { en: 'API rate limited. Try again in a few minutes.', zh: 'API 請求次數超過限制，請稍後再試。' },
 };
 
 /**
