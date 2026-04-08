@@ -14,33 +14,34 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme';
 import { useSettingsStore } from '../../store/settings-store';
 import { lightHaptic } from '../../utils/haptics';
+import { useT } from '../../utils/i18n';
 
 interface OnboardingPage {
   emoji: string;
-  title: string;
-  subtitle: string;
+  titleKey: string;
+  subtitleKey: string;
 }
 
-const PAGES: OnboardingPage[] = [
+const PAGE_DEFS: OnboardingPage[] = [
   {
     emoji: '\uD83D\uDCCA', // chart icon
-    title: 'Analyze Options',
-    subtitle: 'Get daily AI-powered options analysis\nfor TSLA, AMZN, NVDA',
+    titleKey: 'onboarding.analyze',
+    subtitleKey: 'onboarding.analyzeDesc',
   },
   {
     emoji: '\uD83D\uDCCB', // clipboard icon
-    title: 'Compare Strikes',
-    subtitle: 'Compare different strikes side-by-side\nwith POP, IV, and star ratings',
+    titleKey: 'onboarding.compare',
+    subtitleKey: 'onboarding.compareDesc',
   },
   {
     emoji: '\uD83D\uDCC8', // chart with upward trend
-    title: 'Backtest Strategies',
-    subtitle: 'Validate your strategies against\nhistorical data before trading',
+    titleKey: 'onboarding.backtest',
+    subtitleKey: 'onboarding.backtestDesc',
   },
   {
     emoji: '\uD83D\uDE80', // rocket
-    title: 'Get Started',
-    subtitle: 'Your AI-powered options analyzer\nis ready to go',
+    titleKey: 'onboarding.getStarted',
+    subtitleKey: 'onboarding.getStartedDesc',
   },
 ];
 
@@ -55,6 +56,7 @@ export function WelcomeCard() {
   const insets = useSafeAreaInsets();
   const setHasCompletedOnboarding = useSettingsStore((s) => s.setHasCompletedOnboarding);
   const hasCompleted = useSettingsStore((s) => s.hasCompletedOnboarding);
+  const t = useT();
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const flatListRef = useRef<FlatList<OnboardingPage>>(null);
@@ -72,7 +74,7 @@ export function WelcomeCard() {
   };
 
   const handleNext = () => {
-    if (currentIndex < PAGES.length - 1) {
+    if (currentIndex < PAGE_DEFS.length - 1) {
       lightHaptic();
       const nextIdx = currentIndex + 1;
       flatListRef.current?.scrollToIndex({ index: nextIdx, animated: true });
@@ -83,12 +85,12 @@ export function WelcomeCard() {
   const onScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const offset = e.nativeEvent.contentOffset.x;
     const idx = Math.round(offset / SCREEN_WIDTH);
-    if (idx >= 0 && idx < PAGES.length) {
+    if (idx >= 0 && idx < PAGE_DEFS.length) {
       setCurrentIndex(idx);
     }
   }, []);
 
-  const isLastPage = currentIndex === PAGES.length - 1;
+  const isLastPage = currentIndex === PAGE_DEFS.length - 1;
 
   const renderPage = ({ item, index }: ListRenderItemInfo<OnboardingPage>) => (
     <View style={[pageStyles.container, { width: SCREEN_WIDTH }]}>
@@ -99,12 +101,12 @@ export function WelcomeCard() {
 
       {/* Title */}
       <Text style={[pageStyles.title, { color: colors.textHeading }]}>
-        {item.title}
+        {t(item.titleKey)}
       </Text>
 
       {/* Subtitle */}
       <Text style={[pageStyles.subtitle, { color: colors.textMuted }]}>
-        {item.subtitle}
+        {t(item.subtitleKey)}
       </Text>
     </View>
   );
@@ -119,7 +121,7 @@ export function WelcomeCard() {
           activeOpacity={0.7}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Text style={[styles.skipText, { color: colors.textMuted }]}>Skip</Text>
+          <Text style={[styles.skipText, { color: colors.textMuted }]}>{t('onboarding.skip')}</Text>
         </TouchableOpacity>
       )}
 
@@ -132,9 +134,9 @@ export function WelcomeCard() {
       {/* Swipeable pages */}
       <FlatList
         ref={flatListRef}
-        data={PAGES}
+        data={PAGE_DEFS}
         renderItem={renderPage}
-        keyExtractor={(item) => item.title}
+        keyExtractor={(item) => item.titleKey}
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
@@ -152,7 +154,7 @@ export function WelcomeCard() {
 
       {/* Dot indicators */}
       <View style={styles.dots}>
-        {PAGES.map((_, idx) => (
+        {PAGE_DEFS.map((_, idx) => (
           <View
             key={idx}
             style={[
@@ -174,7 +176,7 @@ export function WelcomeCard() {
             onPress={handleComplete}
             activeOpacity={0.7}
           >
-            <Text style={styles.btnText}>Start Analyzing</Text>
+            <Text style={styles.btnText}>{t('onboarding.start')}</Text>
           </TouchableOpacity>
         ) : (
           <TouchableOpacity
@@ -182,7 +184,7 @@ export function WelcomeCard() {
             onPress={handleNext}
             activeOpacity={0.7}
           >
-            <Text style={styles.btnText}>Next</Text>
+            <Text style={styles.btnText}>{t('onboarding.next')}</Text>
           </TouchableOpacity>
         )}
       </View>

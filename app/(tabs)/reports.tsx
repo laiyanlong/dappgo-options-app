@@ -374,7 +374,7 @@ export default function ReportsScreen() {
           {filteredDates.length} {t('reports.count')}
         </Text>
 
-        {/* Filter bar — ticker chips */}
+        {/* Filter bar — date range only (ticker filter removed: reports always contain all tickers) */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -383,18 +383,6 @@ export default function ReportsScreen() {
           scrollEventThrottle={16}
           bounces
         >
-          {TICKER_FILTERS.map((tk) => (
-            <Chip
-              key={tk}
-              label={tk === 'All' ? t('reports.all') : tk}
-              active={tickerFilter === tk}
-              onPress={() => setTickerFilter(tk)}
-              accentColor={colors.accent}
-              textColor={colors.textMuted}
-              borderColor={colors.border}
-            />
-          ))}
-          <View style={styles.filterSpacer} />
           {DATE_RANGE_FILTERS.map((r) => {
             const rangeLabel = r === 'Week' ? t('reports.week') : r === 'Month' ? t('reports.month') : t('reports.all');
             return (

@@ -781,7 +781,7 @@ export default function DashboardScreen() {
       {/* ── Watchlist ── */}
       <View style={styles.section}>
         <SectionHeader
-          title={`\u2764\uFE0F Watchlist${watchlistItems.length > 0 ? ` (${watchlistItems.length})` : ''}`}
+          title={`\u2764\uFE0F ${t('dashboard.watchlist')}${watchlistItems.length > 0 ? ` (${watchlistItems.length})` : ''}`}
           action={watchlistItems.length > 0 ? { label: 'Clear All', onPress: clearWatchlist } : undefined}
         />
         {watchlistItems.length > 0 ? (
@@ -812,7 +812,7 @@ export default function DashboardScreen() {
       {/* ── Today's Top Picks ── */}
       {topPicks.length > 0 && (
         <View style={styles.section}>
-          <SectionHeader title="Today's Top Picks" />
+          <SectionHeader title={t('dashboard.topPicks')} />
           <FlatList
             data={topPicks}
             horizontal
