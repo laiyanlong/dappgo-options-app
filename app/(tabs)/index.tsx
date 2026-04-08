@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Platform,
   Animated,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -141,6 +142,9 @@ const PriceCard = React.memo(function PriceCard({
           backgroundColor: colors.card,
           borderColor: colors.border,
           borderWidth: 0.5,
+          // Bloomberg-style P&L accent: 3px colored left border
+          borderLeftColor: changeColor,
+          borderLeftWidth: 3,
           ...Platform.select({
             ios: {
               shadowColor: '#000',
@@ -329,6 +333,8 @@ export default function DashboardScreen() {
 
   const onRefresh = useCallback(async () => {
     await loadData();
+    // Haptic on pull-to-refresh complete
+    lightHaptic();
     // Show success banner briefly
     setShowRefreshBanner(false);
     refreshBannerKey.current += 1;
@@ -530,7 +536,7 @@ export default function DashboardScreen() {
     [colors, backtestSetMode, backtestSetSimpleInput, backtestSetPendingAutoRun, router],
   );
 
-  // ── Loading state with skeleton ──
+  // ── Loading state: only show skeleton on true first load (no cached data) ──
   if (isLoadingDashboard && !dashboardData) {
     return (
       <TabPage title={t('dashboard.title')} subtitle={t('dashboard.loading')}>
@@ -539,8 +545,8 @@ export default function DashboardScreen() {
     );
   }
 
-  // ── Error / empty state ──
-  if ((error || !dashboardData) && !isLoadingDashboard) {
+  // ── Error / empty state: only show welcome card when there is ZERO cached data ──
+  if ((error || !dashboardData) && !isLoadingDashboard && !dashboardData) {
     return (
       <TabPage title={t('dashboard.title')} onRefresh={loadData}>
         <View style={[styles.welcomeCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -584,6 +590,16 @@ export default function DashboardScreen() {
     >
       {/* ── Refresh Success Banner ── */}
       <RefreshBanner key={refreshBannerKey.current} visible={showRefreshBanner} label={t('dashboard.dataUpdated')} />
+
+      {/* ── Inline refresh indicator — shown when re-fetching with cached data visible ── */}
+      {isLoadingDashboard && dashboardData && (
+        <View style={styles.inlineRefreshRow}>
+          <ActivityIndicator size="small" color={colors.accent} />
+          <Text style={[styles.inlineRefreshText, { color: colors.textMuted }]}>
+            {t('dashboard.loading')}
+          </Text>
+        </View>
+      )}
 
       {/* ── Last Updated ── */}
       <View style={{ marginBottom: spacing.lg }}>
@@ -864,6 +880,20 @@ const styles = StyleSheet.create<Record<string, any>>({
     color: '#2dd4a8',
     fontSize: 14,
     fontWeight: '600',
+  },
+
+  // Inline refresh indicator (shown when re-fetching with cached data visible)
+  inlineRefreshRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 4,
+    paddingHorizontal: spacing.md,
+    marginBottom: spacing.xs,
+  },
+  inlineRefreshText: {
+    fontSize: 12,
+    fontWeight: '500',
   },
 
   // Quick stats row

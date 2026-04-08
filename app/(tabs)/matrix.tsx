@@ -11,6 +11,8 @@ import {
   RefreshControl,
   Platform,
   useWindowDimensions,
+  Animated,
+  Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -37,6 +39,24 @@ type Ticker = (typeof TICKERS)[number];
 // ── iPad breakpoint ──
 const IPAD_WIDTH = 768;
 
+// ── Known upcoming earnings dates (YYYY-MM-DD). Update periodically. ──
+// Used to warn options traders about IV crush risk within 14 days.
+const KNOWN_EARNINGS: Partial<Record<Ticker, string>> = {
+  TSLA: '2026-04-22',
+  AMZN: '2026-05-01',
+  NVDA: '2026-05-28',
+};
+
+/** Returns days until earnings for a ticker, or null if unknown / already passed. */
+function daysUntilEarnings(ticker: Ticker): number | null {
+  const dateStr = KNOWN_EARNINGS[ticker];
+  if (!dateStr) return null;
+  const target = new Date(dateStr);
+  const now = new Date();
+  const diff = Math.ceil((target.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  return diff > 0 ? diff : null;
+}
+
 export default function MatrixScreen() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
@@ -61,6 +81,24 @@ export default function MatrixScreen() {
 
   // ── Compare bottom sheet visibility ──
   const [compareSheetOpen, setCompareSheetOpen] = useState(false);
+
+  // ── Bounce animation for compare count changes ──
+  const compareBounce = useRef(new Animated.Value(1)).current;
+  const prevCompareCount = useRef(compareItems.length);
+
+  useEffect(() => {
+    if (compareItems.length !== prevCompareCount.current) {
+      prevCompareCount.current = compareItems.length;
+      Animated.sequence([
+        Animated.spring(compareBounce, { toValue: 1.18, useNativeDriver: true, friction: 4 }),
+        Animated.spring(compareBounce, { toValue: 1, useNativeDriver: true, friction: 6 }),
+      ]).start();
+    }
+  }, [compareItems.length, compareBounce]);
+
+  // ── Long-press context menu state ──
+  type LongPressEntry = { entry: OptionEntry; symbol: Ticker; strategy: string; expiry: string; dte: number };
+  const [longPressItem, setLongPressItem] = useState<LongPressEntry | null>(null);
 
   // ── Local UI state ──
   const [selectedTicker, setSelectedTicker] = useState<Ticker>('TSLA');
@@ -227,7 +265,20 @@ export default function MatrixScreen() {
 
   const renderStrikeCard = useCallback(
     ({ item }: { item: OptionEntry }) => (
-      <View style={isWide ? styles.gridItem : undefined}>
+      <TouchableOpacity
+        style={isWide ? styles.gridItem : undefined}
+        activeOpacity={1}
+        onLongPress={() =>
+          setLongPressItem({
+            entry: item,
+            symbol: selectedTicker,
+            strategy: strategyLabel,
+            expiry: activeExpiryDate,
+            dte: activeDte,
+          })
+        }
+        delayLongPress={400}
+      >
         <StrikeCard
           entry={item}
           currentPrice={currentPrice}
@@ -239,7 +290,7 @@ export default function MatrixScreen() {
           dte={activeDte}
           compact={!isWide}
         />
-      </View>
+      </TouchableOpacity>
     ),
     [currentPrice, bestStrike, isWide, handleBacktest, selectedTicker, strategyLabel, activeExpiryDate, activeDte]
   );
@@ -280,6 +331,8 @@ export default function MatrixScreen() {
         <View style={styles.tickerContent}>
           {TICKERS.map((ticker) => {
             const active = ticker === selectedTicker;
+            const earningsInDays = daysUntilEarnings(ticker);
+            const hasEarningsWarning = earningsInDays !== null && earningsInDays <= 14;
             return (
               <TouchableOpacity
                 key={ticker}
@@ -305,11 +358,35 @@ export default function MatrixScreen() {
                 >
                   {ticker}
                 </Text>
+                {hasEarningsWarning && (
+                  <Text
+                    numberOfLines={1}
+                    style={[
+                      styles.earningsWarning,
+                      { color: active ? '#fff' : '#e8b84b' },
+                    ]}
+                  >
+                    {'\u26A0\uFE0F'} {earningsInDays}d
+                  </Text>
+                )}
               </TouchableOpacity>
             );
           })}
         </View>
       </View>
+
+      {/* ── Earnings warning banner for selected ticker (if within 14 days) ── */}
+      {(() => {
+        const earningsDays = daysUntilEarnings(selectedTicker);
+        if (earningsDays === null || earningsDays > 14) return null;
+        return (
+          <View style={[styles.earningsBanner, { backgroundColor: '#e8b84b18', borderColor: '#e8b84b40' }]}>
+            <Text style={[styles.earningsBannerText, { color: '#e8b84b' }]}>
+              {'\u26A0\uFE0F'} Earnings in {earningsDays}d — IV crush risk after announcement. Size positions carefully.
+            </Text>
+          </View>
+        );
+      })()}
 
       {/* ── Selected ticker price row — fixed height prevents layout shift ── */}
       <View style={styles.priceRow}>
@@ -508,9 +585,16 @@ export default function MatrixScreen() {
           onPress={() => setCompareSheetOpen(true)}
           activeOpacity={0.8}
         >
-          <Text style={styles.floatingBarText}>
-            {t('matrix.compare')} ({compareItems.length})
-          </Text>
+          <Animated.View style={[styles.floatingBarInner, { transform: [{ scale: compareBounce }] }]}>
+            <Text style={styles.floatingBarText}>
+              {t('matrix.compare')} ({compareItems.length})
+            </Text>
+            {compareItems.length > 0 && (
+              <Text style={styles.floatingBarPreview} numberOfLines={1}>
+                {compareItems.map((ci) => `${ci.symbol} $${ci.strike}`).join(', ')}
+              </Text>
+            )}
+          </Animated.View>
           <Ionicons name="chevron-up" size={18} color="#fff" />
         </TouchableOpacity>
       )}
@@ -592,6 +676,67 @@ export default function MatrixScreen() {
             </TouchableOpacity>
           </View>
         </View>
+      )}
+
+      {/* ── Long-press context menu modal ── */}
+      {longPressItem && (
+        <Modal
+          visible={!!longPressItem}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setLongPressItem(null)}
+        >
+          <TouchableOpacity
+            style={styles.lpOverlay}
+            activeOpacity={1}
+            onPress={() => setLongPressItem(null)}
+          >
+            <View style={[styles.lpMenu, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <Text style={[styles.lpTitle, { color: colors.textHeading }]}>
+                {longPressItem.symbol} {formatDollar(longPressItem.entry.strike)}
+              </Text>
+              <Text style={[styles.lpSubtitle, { color: colors.textMuted }]}>
+                {longPressItem.strategy.replace(/_/g, ' ')} — Choose action
+              </Text>
+
+              {/* Action: Backtest This */}
+              <TouchableOpacity
+                style={[styles.lpItem, { borderBottomColor: colors.border }]}
+                activeOpacity={0.7}
+                onPress={() => {
+                  setLongPressItem(null);
+                  handleBacktest(longPressItem.entry);
+                }}
+              >
+                <Ionicons name="trending-up" size={20} color={colors.accent} />
+                <Text style={[styles.lpItemText, { color: colors.text }]}>Backtest This</Text>
+              </TouchableOpacity>
+
+              {/* Action: View in Report */}
+              <TouchableOpacity
+                style={[styles.lpItem, { borderBottomColor: colors.border }]}
+                activeOpacity={0.7}
+                onPress={() => {
+                  setLongPressItem(null);
+                  router.navigate('/(tabs)/reports');
+                }}
+              >
+                <Ionicons name="document-text" size={20} color={colors.accent} />
+                <Text style={[styles.lpItemText, { color: colors.text }]}>View in Report</Text>
+              </TouchableOpacity>
+
+              {/* Action: Cancel */}
+              <TouchableOpacity
+                style={[styles.lpItem, { borderBottomColor: 'transparent' }]}
+                activeOpacity={0.7}
+                onPress={() => setLongPressItem(null)}
+              >
+                <Ionicons name="close-circle-outline" size={20} color={colors.textMuted} />
+                <Text style={[styles.lpItemText, { color: colors.textMuted }]}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </Modal>
       )}
     </View>
   );
@@ -772,29 +917,100 @@ const styles = StyleSheet.create<Record<string, any>>({
     justifyContent: 'center',
   },
 
+  // Ticker chip earnings warning label
+  earningsWarning: {
+    fontSize: 10,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+
+  // Earnings banner below ticker chips
+  earningsBanner: {
+    marginHorizontal: 16,
+    marginBottom: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  earningsBannerText: {
+    fontSize: 12,
+    fontWeight: '500',
+    lineHeight: 18,
+  },
+
   // Floating compare bar
   floatingBar: {
     position: 'absolute',
     bottom: 20,
     left: 20,
     right: 20,
-    paddingVertical: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
     borderRadius: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
     gap: 6,
-    minHeight: 44,
+    minHeight: 52,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 6,
     elevation: 6,
   },
+  floatingBarInner: {
+    flex: 1,
+  },
   floatingBarText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '700',
+  },
+  floatingBarPreview: {
+    color: 'rgba(255,255,255,0.75)',
+    fontSize: 11,
+    marginTop: 2,
+  },
+
+  // Long-press context menu
+  lpOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+  },
+  lpMenu: {
+    width: '100%',
+    borderRadius: 14,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  lpTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 2,
+  },
+  lpSubtitle: {
+    fontSize: 12,
+    paddingHorizontal: 16,
+    paddingBottom: 10,
+  },
+  lpItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    minHeight: 52,
+  },
+  lpItemText: {
+    fontSize: 16,
+    fontWeight: '500',
   },
 
   // Compare bottom sheet

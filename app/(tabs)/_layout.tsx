@@ -8,6 +8,8 @@ import { useWatchlistStore } from '../../src/store/watchlist-store';
 import { useAppStore } from '../../src/store/app-store';
 import { useSettingsStore } from '../../src/store/settings-store';
 import { trackEvent } from '../../src/data/analytics';
+import { useT } from '../../src/utils/i18n';
+import { lightHaptic } from '../../src/utils/haptics';
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -89,6 +91,7 @@ function AnimatedTabLabel({
 
 function TabNavigator() {
   const { colors } = useTheme();
+  const t = useT();
 
   // Badge data
   const watchlistCount = useWatchlistStore((s) => s.items.length);
@@ -99,6 +102,12 @@ function TabNavigator() {
   // Matrix badge: show watchlist count as indicator for "items to review"
   const matrixBadge = watchlistCount > 0 ? watchlistCount : undefined;
   const reportsBadge = unreadReports > 0 ? unreadReports : undefined;
+
+  // Haptic + analytics helper for tab presses
+  const onTabPress = (tab: string) => {
+    lightHaptic();
+    trackEvent('tab_switch', { tab });
+  };
 
   return (
     <Tabs
@@ -124,72 +133,72 @@ function TabNavigator() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Dashboard',
-          tabBarAccessibilityLabel: 'Dashboard',
+          title: t('tab.dashboard'),
+          tabBarAccessibilityLabel: t('tab.dashboard'),
           tabBarIcon: ({ color, size, focused }) => (
             <AnimatedTabBarIcon name="home" color={color} size={size} focused={focused} />
           ),
           tabBarLabel: ({ color, focused }) => (
-            <AnimatedTabLabel label="Dashboard" color={color} focused={focused} />
+            <AnimatedTabLabel label={t('tab.dashboard')} color={color} focused={focused} />
           ),
         }}
-        listeners={{ tabPress: () => trackEvent('tab_switch', { tab: 'Dashboard' }) }}
+        listeners={{ tabPress: () => onTabPress('Dashboard') }}
       />
       <Tabs.Screen
         name="reports"
         options={{
-          title: 'Reports',
-          tabBarAccessibilityLabel: 'Reports',
+          title: t('tab.reports'),
+          tabBarAccessibilityLabel: t('tab.reports'),
           tabBarIcon: ({ color, size, focused }) => (
             <AnimatedTabBarIcon name="document-text" color={color} size={size} focused={focused} badge={reportsBadge} />
           ),
           tabBarLabel: ({ color, focused }) => (
-            <AnimatedTabLabel label="Reports" color={color} focused={focused} />
+            <AnimatedTabLabel label={t('tab.reports')} color={color} focused={focused} />
           ),
         }}
-        listeners={{ tabPress: () => trackEvent('tab_switch', { tab: 'Reports' }) }}
+        listeners={{ tabPress: () => onTabPress('Reports') }}
       />
       <Tabs.Screen
         name="backtest"
         options={{
-          title: 'Backtest',
-          tabBarAccessibilityLabel: 'Backtest',
+          title: t('tab.backtest'),
+          tabBarAccessibilityLabel: t('tab.backtest'),
           tabBarIcon: ({ color, size, focused }) => (
             <AnimatedTabBarIcon name="trending-up" color={color} size={size} focused={focused} />
           ),
           tabBarLabel: ({ color, focused }) => (
-            <AnimatedTabLabel label="Backtest" color={color} focused={focused} />
+            <AnimatedTabLabel label={t('tab.backtest')} color={color} focused={focused} />
           ),
         }}
-        listeners={{ tabPress: () => trackEvent('tab_switch', { tab: 'Backtest' }) }}
+        listeners={{ tabPress: () => onTabPress('Backtest') }}
       />
       <Tabs.Screen
         name="matrix"
         options={{
-          title: 'Matrix',
-          tabBarAccessibilityLabel: 'Matrix',
+          title: t('tab.matrix'),
+          tabBarAccessibilityLabel: t('tab.matrix'),
           tabBarIcon: ({ color, size, focused }) => (
             <AnimatedTabBarIcon name="grid" color={color} size={size} focused={focused} badge={matrixBadge} />
           ),
           tabBarLabel: ({ color, focused }) => (
-            <AnimatedTabLabel label="Matrix" color={color} focused={focused} />
+            <AnimatedTabLabel label={t('tab.matrix')} color={color} focused={focused} />
           ),
         }}
-        listeners={{ tabPress: () => trackEvent('tab_switch', { tab: 'Matrix' }) }}
+        listeners={{ tabPress: () => onTabPress('Matrix') }}
       />
       <Tabs.Screen
         name="settings"
         options={{
-          title: 'Settings',
-          tabBarAccessibilityLabel: 'Settings',
+          title: t('tab.settings'),
+          tabBarAccessibilityLabel: t('tab.settings'),
           tabBarIcon: ({ color, size, focused }) => (
             <AnimatedTabBarIcon name="settings" color={color} size={size} focused={focused} />
           ),
           tabBarLabel: ({ color, focused }) => (
-            <AnimatedTabLabel label="Settings" color={color} focused={focused} />
+            <AnimatedTabLabel label={t('tab.settings')} color={color} focused={focused} />
           ),
         }}
-        listeners={{ tabPress: () => trackEvent('tab_switch', { tab: 'Settings' }) }}
+        listeners={{ tabPress: () => onTabPress('Settings') }}
       />
     </Tabs>
   );

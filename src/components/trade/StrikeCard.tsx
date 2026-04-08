@@ -10,6 +10,7 @@ import { useWatchlistStore } from '../../store/watchlist-store';
 import { useCompareStore } from '../../store/compare-store';
 import { useSettingsStore } from '../../store/settings-store';
 import { trackEvent } from '../../data/analytics';
+import { lightHaptic } from '../../utils/haptics';
 import type { OptionEntry } from '../../utils/types';
 
 interface StrikeCardProps {
@@ -122,6 +123,8 @@ export const StrikeCard = React.memo(function StrikeCard({
   const removeByKey = useWatchlistStore((s) => s.removeByKey);
 
   const toggleWatchlist = () => {
+    // Haptic feedback for watchlist action
+    lightHaptic();
     // Pulse animation
     Animated.sequence([
       Animated.spring(heartScale, { toValue: 1.4, useNativeDriver: true, friction: 3 }),

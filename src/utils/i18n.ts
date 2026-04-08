@@ -3,6 +3,13 @@ import { useSettingsStore } from '../store/settings-store';
 type Lang = 'en' | 'zh';
 
 const strings: Record<string, Record<Lang, string>> = {
+  // Tab labels (short form for bottom tab bar)
+  'tab.dashboard': { en: 'Dashboard', zh: '儀表板' },
+  'tab.reports': { en: 'Reports', zh: '報告' },
+  'tab.backtest': { en: 'Backtest', zh: '回測' },
+  'tab.matrix': { en: 'Matrix', zh: '矩陣' },
+  'tab.settings': { en: 'Settings', zh: '設定' },
+
   // Dashboard
   'dashboard.title': { en: 'Dashboard', zh: '儀表板' },
   'dashboard.subtitle': { en: 'Live market data & model verdict', zh: '即時市場數據與模型評價' },
@@ -54,6 +61,7 @@ const strings: Record<string, Record<Lang, string>> = {
 
   // Matrix
   'matrix.title': { en: 'Options Matrix', zh: '選擇權矩陣' },
+  'matrix.tabLabel': { en: 'Matrix', zh: '矩陣' },
   'matrix.subtitle': { en: 'Strike comparison & analysis', zh: '履約價比較與分析' },
   'matrix.strikes': { en: 'strikes', zh: '個履約價' },
   'matrix.best': { en: 'Best', zh: '最佳' },

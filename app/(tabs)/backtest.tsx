@@ -38,6 +38,7 @@ import { backtestToShareText, backtestToCsv } from '../../src/utils/export';
 import { EmptyState } from '../../src/components/ui/EmptyState';
 import { trackEvent } from '../../src/data/analytics';
 import { useT } from '../../src/utils/i18n';
+import { mediumHaptic } from '../../src/utils/haptics';
 import type { BacktestInput, BacktestResult } from '../../src/utils/types';
 
 // Enable LayoutAnimation on Android
@@ -463,7 +464,7 @@ export default function BacktestScreen() {
           {/* Run button */}
           <TouchableOpacity
             style={[styles.runBtn, { backgroundColor: colors.accent }]}
-            onPress={runSimple}
+            onPress={() => { mediumHaptic(); runSimple(); }}
             activeOpacity={0.8}
             disabled={computing}
           >
@@ -530,7 +531,7 @@ export default function BacktestScreen() {
           {portfolio.length > 0 && (
             <TouchableOpacity
               style={[styles.runBtn, { backgroundColor: colors.accent }]}
-              onPress={runAll}
+              onPress={() => { mediumHaptic(); runAll(); }}
               activeOpacity={0.8}
               disabled={computing}
             >
@@ -921,7 +922,7 @@ export default function BacktestScreen() {
                   </View>
 
                   {/* Verdict */}
-                  <Text style={{ color: colors.text, fontSize: 14, lineHeight: 22 }}>
+                  <Text style={{ color: colors.text, fontSize: 14, lineHeight: 22, marginBottom: 12 }}>
                     {results.length === 1
                       ? best.winRate >= 60
                         ? `✅ ${best.input.symbol} ${best.input.strategy.replace(/_/g, ' ')} shows a ${best.winRate.toFixed(1)}% win rate with ${best.totalPnl >= 0 ? 'positive' : 'negative'} returns. ${best.sharpe >= 1 ? 'Risk-adjusted returns are strong.' : 'Consider tighter risk management.'}`
@@ -933,6 +934,34 @@ export default function BacktestScreen() {
                           : `📊 Mixed results: 🥇 ${best.input.symbol} (WR ${best.winRate.toFixed(0)}%, P&L ${formatDollar(best.totalPnl)}) outperforms 🥉 ${worst.input.symbol} (WR ${worst.winRate.toFixed(0)}%, P&L ${formatDollar(worst.totalPnl)}). Consider focusing on the top performer.`
                     }
                   </Text>
+
+                  {/* ── Worst / Best single trade from pnlCurve (trader sizing aid) ── */}
+                  {(() => {
+                    // Build combined pnlCurve deltas across all results
+                    const allPoints = results.flatMap((r) => {
+                      if (!r.pnlCurve || r.pnlCurve.length < 2) return [];
+                      return r.pnlCurve.slice(1).map((pt, i) => ({
+                        date: pt.date,
+                        delta: pt.pnl - r.pnlCurve[i].pnl,
+                      }));
+                    });
+                    if (allPoints.length === 0) return null;
+                    const worstPt = allPoints.reduce((a, b) => (b.delta < a.delta ? b : a));
+                    const bestPt = allPoints.reduce((a, b) => (b.delta > a.delta ? b : a));
+                    return (
+                      <View style={{ gap: 4 }}>
+                        <Text style={{ color: colors.negative, fontSize: 13, fontWeight: '600' }}>
+                          {'📉 Worst single trade: '}{worstPt.delta >= 0 ? '+' : ''}{formatDollar(worstPt.delta)}{' on '}{worstPt.date}
+                        </Text>
+                        <Text style={{ color: colors.positive, fontSize: 13, fontWeight: '600' }}>
+                          {'📈 Best single trade: '}{bestPt.delta >= 0 ? '+' : ''}{formatDollar(bestPt.delta)}{' on '}{bestPt.date}
+                        </Text>
+                        <Text style={{ color: colors.textMuted, fontSize: 11, marginTop: 4 }}>
+                          Use the worst-case figure to size your position (e.g. risk no more than 1-2% of capital per trade).
+                        </Text>
+                      </View>
+                    );
+                  })()}
                 </View>
               );
             })()}
