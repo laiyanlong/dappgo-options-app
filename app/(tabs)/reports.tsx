@@ -344,7 +344,6 @@ export default function ReportsScreen() {
           <View style={[
             styles.leftBar,
             { backgroundColor: isUnread ? colors.accent : barColor },
-            isUnread && { width: 4 },
           ]} />
 
           {/* Unread badge */}
@@ -682,7 +681,7 @@ const styles = StyleSheet.create<Record<string, any>>({
     overflow: 'hidden',
   },
   leftBar: {
-    width: 3,
+    width: 5,
   },
   unreadBadge: {
     position: 'absolute',

@@ -139,6 +139,8 @@ const styles = StyleSheet.create({
     top: 0,
     borderRadius: CARD_RADIUS,
     borderWidth: 1,
+    borderLeftWidth: 5,
+    borderLeftColor: 'transparent',
   },
   peekLayer2: {
     top: 7,
@@ -155,7 +157,7 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: CARD_RADIUS,
     borderWidth: 1,
-    borderLeftWidth: 3,
+    borderLeftWidth: 5,
     padding: 16,
     paddingRight: 44,
   },

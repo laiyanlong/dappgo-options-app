@@ -117,7 +117,7 @@ function getVariantStyle(
         borderColor: colors.border,
         borderWidth: 1,
         borderLeftColor: colors.gold,
-        borderLeftWidth: 3,
+        borderLeftWidth: 5,
         ...shadow,
       } as ViewStyle;
 
