@@ -1179,7 +1179,7 @@ function SwipeToDeleteCard({
   };
 
   return (
-    <View style={{ overflow: 'hidden', borderRadius: 12, marginBottom: 10 }}>
+    <View style={{ overflow: 'hidden', borderRadius: 14, marginBottom: 10 }}>
       {/* Delete button behind the card */}
       <TouchableOpacity
         onPress={handleDelete}
@@ -1203,7 +1203,7 @@ function SwipeToDeleteCard({
 
       {/* Swipeable card content */}
       <Animated.View
-        style={{ transform: [{ translateX }], backgroundColor: colors.card, borderRadius: 12 }}
+        style={{ transform: [{ translateX }], backgroundColor: colors.card, borderRadius: 14 }}
         {...panResponder.panHandlers}
       >
         <TouchableOpacity activeOpacity={0.7} onPress={handleClose}>
@@ -1224,7 +1224,7 @@ const swipeStyles = StyleSheet.create({
     backgroundColor: '#ef4444',
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 12,
+    borderRadius: 14,
   },
   deleteText: {
     color: '#fff',
@@ -1346,7 +1346,7 @@ const styles = StyleSheet.create<Record<string, any>>({
 
   // Run button
   runBtn: {
-    borderRadius: 12,
+    borderRadius: 14,
     paddingVertical: 16,
     alignItems: 'center',
     marginBottom: 12,
@@ -1369,7 +1369,7 @@ const styles = StyleSheet.create<Record<string, any>>({
   deleteBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
   deleteBtnText: { fontSize: 12, fontWeight: '600' },
   addBtn: {
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 1.5,
     borderStyle: 'dashed',
     paddingVertical: 14,
@@ -1429,7 +1429,7 @@ const styles = StyleSheet.create<Record<string, any>>({
 
   // Best pick banner
   bestBanner: {
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 1,
     padding: 14,
     marginBottom: 16,
@@ -1441,7 +1441,7 @@ const styles = StyleSheet.create<Record<string, any>>({
     alignSelf: 'flex-start',
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 1,
     marginBottom: 12,
   },
@@ -1535,7 +1535,7 @@ const styles = StyleSheet.create<Record<string, any>>({
   actionBtn: {
     flex: 1,
     paddingVertical: 14,
-    borderRadius: 12,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 44,

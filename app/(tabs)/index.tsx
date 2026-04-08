@@ -25,7 +25,7 @@ import { probabilityOfProfit } from '../../src/engine/pop';
 import { SparkLine } from '../../src/components/charts/SparkLine';
 import { StockChart } from '../../src/components/charts/StockChart';
 import { TickerTape } from '../../src/components/charts/TickerTape';
-import { Card } from '../../src/components/ui/Card';
+import { Card, CARD_RADIUS, cardShadow } from '../../src/components/ui/Card';
 import { SectionHeader } from '../../src/components/ui/SectionHeader';
 import { TabPage } from '../../src/components/ui/TabPage';
 import { UpgradePrompt } from '../../src/components/ui/UpgradePrompt';
@@ -142,20 +142,11 @@ const PriceCard = React.memo(function PriceCard({
         {
           backgroundColor: colors.card,
           borderColor: colors.border,
-          borderWidth: 0.5,
-          // Bloomberg-style P&L accent: 3px colored left border
+          borderWidth: 1,
           borderLeftColor: changeColor,
           borderLeftWidth: 3,
-          ...Platform.select({
-            ios: {
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: isDark ? 4 : 2 },
-              shadowOpacity: isDark ? 0.25 : 0.08,
-              shadowRadius: isDark ? 12 : 6,
-            },
-            android: { elevation: isDark ? 8 : 3 },
-          }),
         },
+        cardShadow(isDark),
       ]}
     >
       <View style={styles.priceCardHeader}>

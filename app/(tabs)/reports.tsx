@@ -24,7 +24,7 @@ import { fetchReportDates, fetchReportContent } from '../../src/data/github-api'
 import { parseReport, extractTickerMetrics } from '../../src/data/parser';
 import { formatDate, formatPct, formatDollar } from '../../src/utils/format';
 import { GITHUB_OWNER, GITHUB_REPO, DEFAULT_TICKERS } from '../../src/utils/constants';
-import { Card } from '../../src/components/ui/Card';
+import { Card, CARD_RADIUS, cardShadow } from '../../src/components/ui/Card';
 import { Badge } from '../../src/components/ui/Badge';
 import { EmptyState } from '../../src/components/ui/EmptyState';
 import { SectionHeader } from '../../src/components/ui/SectionHeader';
@@ -106,7 +106,7 @@ const Chip = React.memo(function Chip({
 // ── Main screen ──
 
 export default function ReportsScreen() {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const t = useT();
@@ -349,6 +349,7 @@ export default function ReportsScreen() {
               backgroundColor: colors.card,
               borderColor: colors.border,
             },
+            cardShadow(isDark),
           ]}
         >
           {/* Colored left edge bar — thicker + accent glow for unread */}
@@ -677,7 +678,7 @@ const styles = StyleSheet.create<Record<string, any>>({
     marginBottom: 12,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    borderRadius: 12,
+    borderRadius: CARD_RADIUS,
     borderWidth: 1,
     minHeight: 44,
   },
@@ -736,7 +737,7 @@ const styles = StyleSheet.create<Record<string, any>>({
   // Redesigned report card
   reportCard: {
     flexDirection: 'row',
-    borderRadius: 12,
+    borderRadius: CARD_RADIUS,
     borderWidth: 1,
     marginBottom: 12,
     overflow: 'hidden',

@@ -16,9 +16,7 @@ interface CardProps {
   children: React.ReactNode;
   style?: StyleProp<ViewStyle>;
   onPress?: () => void;
-  /** Visual variant for the card */
   variant?: CardVariant;
-  /** Padding preset */
   padding?: CardPadding;
 }
 
@@ -30,10 +28,16 @@ const PADDING_MAP: Record<CardPadding, number> = {
 };
 
 /**
- * Reusable card component with themed border and background.
- * Supports variants: default, elevated, outlined, highlight.
- * Renders a TouchableOpacity when onPress is provided, otherwise a View.
+ * Unified card component — all cards in the app should use this or match its tokens.
+ *
+ * Design tokens (keep in sync across all card-like elements):
+ *   borderRadius: 14
+ *   borderWidth: 1 (default), 0 (elevated)
+ *   shadow (dark):  offset 0,2  opacity 0.35  radius 8
+ *   shadow (light): offset 0,1  opacity 0.06  radius 4
  */
+export const CARD_RADIUS = 14;
+
 export function Card({
   children,
   style,
@@ -41,9 +45,9 @@ export function Card({
   variant = 'default',
   padding = 'md',
 }: CardProps) {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
 
-  const variantStyle = getVariantStyle(variant, colors);
+  const variantStyle = getVariantStyle(variant, colors, isDark);
   const cardStyle: ViewStyle[] = [
     styles.card,
     { padding: PADDING_MAP[padding] },
@@ -66,10 +70,23 @@ export function Card({
   return <View style={cardStyle}>{children}</View>;
 }
 
+/** Shared shadow style that any inline card can import */
+export function cardShadow(isDark: boolean): ViewStyle {
+  return Platform.select({
+    ios: isDark
+      ? { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.35, shadowRadius: 8 }
+      : { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4 },
+    android: { elevation: isDark ? 6 : 3 },
+  }) as ViewStyle;
+}
+
 function getVariantStyle(
   variant: CardVariant,
   colors: ReturnType<typeof useTheme>['colors'],
+  isDark: boolean,
 ): ViewStyle {
+  const shadow = cardShadow(isDark);
+
   switch (variant) {
     case 'elevated':
       return {
@@ -80,10 +97,10 @@ function getVariantStyle(
           ios: {
             shadowColor: '#000',
             shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.25,
-            shadowRadius: 12,
+            shadowOpacity: isDark ? 0.4 : 0.1,
+            shadowRadius: 14,
           },
-          android: { elevation: 8 },
+          android: { elevation: isDark ? 10 : 5 },
         }),
       } as ViewStyle;
 
@@ -98,33 +115,26 @@ function getVariantStyle(
       return {
         backgroundColor: colors.card,
         borderColor: colors.border,
-        borderWidth: 0.5,
+        borderWidth: 1,
         borderLeftColor: colors.gold,
         borderLeftWidth: 3,
-        ...Platform.select({
-          ios: {
-            shadowColor: colors.gold,
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.1,
-            shadowRadius: 6,
-          },
-          android: { elevation: 4 },
-        }),
+        ...shadow,
       } as ViewStyle;
 
     case 'default':
     default:
       return {
-        backgroundColor: colors.card + 'ee', // slight transparency for glass effect
+        backgroundColor: colors.card,
         borderColor: colors.border,
-        borderWidth: 0.5,
-      };
+        borderWidth: 1,
+        ...shadow,
+      } as ViewStyle;
   }
 }
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 12,
+    borderRadius: CARD_RADIUS,
     marginBottom: 12,
   },
 });

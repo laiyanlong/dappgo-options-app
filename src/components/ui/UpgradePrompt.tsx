@@ -67,7 +67,7 @@ export function UpgradePrompt() {
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 1,
     padding: 16,
     marginBottom: 12,

@@ -1,7 +1,8 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Animated } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../theme';
+import { CARD_RADIUS, cardShadow } from './Card';
 
 interface InsightCardProps {
   icon: string;
@@ -28,27 +29,41 @@ export const InsightCard = React.memo(function InsightCard({
   stackBehind = 0,
   dismissHint,
 }: InsightCardProps) {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const accent = accentColor || colors.accent;
+  const shadow = cardShadow(isDark);
+
+  // Peek layer colors — progressively lighter/darker to create depth
+  const peekBg2 = isDark ? '#1e1e42' : '#edeef4';
+  const peekBg3 = isDark ? '#252550' : '#e4e5ee';
+  const peekBorder = isDark ? '#2e2e58' : '#d4d6e0';
 
   return (
-    <View style={styles.stackContainer}>
-      {/* ── Peek layers (back cards) ── */}
+    <View style={[styles.stackContainer, { marginBottom: stackBehind >= 2 ? 16 : stackBehind >= 1 ? 10 : 4 }]}>
+      {/* ── 3rd peek layer (deepest) ── */}
       {stackBehind >= 2 && (
         <View
           style={[
             styles.peekLayer,
             styles.peekLayer3,
-            { backgroundColor: colors.backgroundAlt, borderColor: colors.border },
+            { backgroundColor: peekBg3, borderColor: peekBorder },
           ]}
         />
       )}
+
+      {/* ── 2nd peek layer ── */}
       {stackBehind >= 1 && (
         <View
           style={[
             styles.peekLayer,
             styles.peekLayer2,
-            { backgroundColor: colors.cardHover || colors.backgroundAlt, borderColor: colors.border },
+            { backgroundColor: peekBg2, borderColor: peekBorder },
+            Platform.select({
+              ios: isDark
+                ? { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 4 }
+                : { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 2 },
+              android: { elevation: 2 },
+            }),
           ]}
         />
       )}
@@ -57,20 +72,32 @@ export const InsightCard = React.memo(function InsightCard({
       <TouchableOpacity
         activeOpacity={0.6}
         onPress={onPress}
-        style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border, borderLeftColor: accent }]}
+        style={[
+          styles.card,
+          {
+            backgroundColor: colors.card,
+            borderColor: colors.border,
+            borderLeftColor: accent,
+          },
+          shadow,
+        ]}
       >
         {/* Dismiss */}
         <TouchableOpacity
           onPress={onDismiss}
-          style={[styles.dismissBtn, { backgroundColor: colors.backgroundAlt }]}
+          style={[styles.dismissBtn, {
+            backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
+          }]}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Ionicons name="close" size={14} color={colors.tabInactive} />
+          <Ionicons name="close" size={14} color={colors.textMuted} />
         </TouchableOpacity>
 
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.icon}>{icon}</Text>
+          <View style={[styles.iconCircle, { backgroundColor: accent + '18' }]}>
+            <Text style={styles.icon}>{icon}</Text>
+          </View>
           <Text style={[styles.title, { color: colors.textHeading }]}>{title}</Text>
         </View>
 
@@ -82,9 +109,11 @@ export const InsightCard = React.memo(function InsightCard({
           {content}
         </Text>
 
-        {/* Footer: link + swipe hint */}
+        {/* Footer */}
         <View style={styles.footer}>
-          <Text style={[styles.link, { color: accent }]}>{linkText}</Text>
+          <View style={[styles.linkPill, { backgroundColor: accent + '14' }]}>
+            <Text style={[styles.link, { color: accent }]}>{linkText}</Text>
+          </View>
           {stackBehind > 0 && dismissHint && (
             <Text style={[styles.swipeHint, { color: colors.textMuted }]}>
               {dismissHint}
@@ -99,44 +128,41 @@ export const InsightCard = React.memo(function InsightCard({
 const styles = StyleSheet.create({
   stackContainer: {
     position: 'relative',
-    // Extra bottom space for peek layers
-    marginBottom: 6,
   },
 
-  // Back layers peeking out
+  // Back layers — visible edges create physical deck illusion
   peekLayer: {
     position: 'absolute',
     left: 0,
     right: 0,
-    height: '100%',
-    borderRadius: 12,
-    borderWidth: 0.5,
-    borderLeftWidth: 3,
-    borderLeftColor: 'transparent',
+    bottom: 0,
+    top: 0,
+    borderRadius: CARD_RADIUS,
+    borderWidth: 1,
   },
   peekLayer2: {
-    top: 6,
-    marginHorizontal: 6,
-    opacity: 0.7,
+    top: 7,
+    bottom: -7,
+    marginHorizontal: 8,
   },
   peekLayer3: {
-    top: 12,
-    marginHorizontal: 12,
-    opacity: 0.4,
+    top: 14,
+    bottom: -14,
+    marginHorizontal: 16,
   },
 
   // Top card
   card: {
-    borderRadius: 12,
-    borderWidth: 0.5,
+    borderRadius: CARD_RADIUS,
+    borderWidth: 1,
     borderLeftWidth: 3,
     padding: 16,
-    paddingRight: 40,
+    paddingRight: 44,
   },
   dismissBtn: {
     position: 'absolute',
-    top: 8,
-    right: 8,
+    top: 10,
+    right: 10,
     width: 32,
     height: 32,
     borderRadius: 16,
@@ -146,11 +172,18 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
+    gap: 10,
+    marginBottom: 10,
+  },
+  iconCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   icon: {
-    fontSize: 18,
+    fontSize: 16,
   },
   title: {
     fontSize: 16,
@@ -159,19 +192,23 @@ const styles = StyleSheet.create({
   content: {
     fontSize: 14,
     lineHeight: 20,
-    marginBottom: 10,
+    marginBottom: 12,
   },
   footer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  linkPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
   link: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 13,
+    fontWeight: '700',
   },
   swipeHint: {
     fontSize: 11,
-    fontStyle: 'italic',
   },
 });
