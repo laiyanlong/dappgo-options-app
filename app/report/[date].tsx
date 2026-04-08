@@ -51,32 +51,42 @@ function parseMarkdownTables(markdown: string): (TableBlock | TextBlock)[] {
   const lines = markdown.split('\n');
   let i = 0;
   let textBuffer = '';
+  let lastHeadingLine = -1;
   let lastHeading = '';
 
   while (i < lines.length) {
     const line = lines[i];
 
     // Track headings for table titles
-    if (line.startsWith('**') || line.startsWith('### ') || line.startsWith('## ')) {
-      lastHeading = line.replace(/[*#]+\s*/g, '').trim();
+    if (line.startsWith('### ') || line.startsWith('## ') || (line.startsWith('**') && line.endsWith('**'))) {
+      lastHeading = line.replace(/^[#*\s]+|[*]+$/g, '').trim();
+      lastHeadingLine = i;
     }
 
     // Detect table start (header row with |)
     if (line.includes('|') && i + 1 < lines.length && lines[i + 1].includes('---')) {
-      // Flush text buffer
+      // Flush text buffer — but remove the last heading line if it becomes the table title
       if (textBuffer.trim()) {
-        blocks.push({ type: 'text', content: textBuffer.trim() });
+        let text = textBuffer;
+        // Remove the heading that will become the table title to avoid duplication
+        if (lastHeadingLine >= 0) {
+          const headingText = lines[lastHeadingLine];
+          text = text.replace(headingText + '\n', '').replace(headingText, '');
+        }
+        if (text.trim()) {
+          blocks.push({ type: 'text', content: text.trim() });
+        }
         textBuffer = '';
       }
 
-      // Parse header
-      const headers = line.split('|').map(h => h.trim()).filter(Boolean);
+      // Parse header — clean ** from cell values
+      const headers = line.split('|').map(h => h.replace(/\*\*/g, '').trim()).filter(Boolean);
       i += 2; // Skip header + separator
 
-      // Parse rows
+      // Parse rows — clean ** from cell values
       const rows: TableBlock['rows'] = [];
       while (i < lines.length && lines[i].includes('|')) {
-        const cells = lines[i].split('|').map(c => c.trim()).filter(Boolean);
+        const cells = lines[i].split('|').map(c => c.replace(/\*\*/g, '').trim()).filter(Boolean);
         const isHighlight = lines[i].includes('★');
         rows.push({ cells, isHighlight });
         i++;
@@ -84,6 +94,7 @@ function parseMarkdownTables(markdown: string): (TableBlock | TextBlock)[] {
 
       blocks.push({ type: 'table', title: lastHeading, headers, rows });
       lastHeading = '';
+      lastHeadingLine = -1;
     } else {
       textBuffer += line + '\n';
       i++;
