@@ -125,8 +125,11 @@ export default function ReportsScreen() {
   const markViewed = useSettingsStore((s) => s.markReportViewed);
 
   // Insight cards
-  const dismissedCards = useSettingsStore((s) => s.dismissedInsightCards);
-  const dismissCard = useSettingsStore((s) => s.dismissInsightCard);
+  // Session-only: dismissed cards reset when app restarts
+  const [dismissedCards, setDismissedCards] = useState<string[]>([]);
+  const dismissCard = useCallback((id: string) => {
+    setDismissedCards((prev) => prev.includes(id) ? prev : [...prev, id]);
+  }, []);
 
   // Preview modal state (long-press peek)
   const [previewDate, setPreviewDate] = useState<string | null>(null);
@@ -531,7 +534,7 @@ export default function ReportsScreen() {
                 const latestDate = reportDates[0];
                 if (latestDate) {
                   markViewed(latestDate);
-                  router.push({ pathname: '/report/[date]', params: { date: latestDate } });
+                  router.push({ pathname: '/report/[date]', params: { date: latestDate, tab: String(insightCards[0].tab) } });
                 }
               }}
               onDismiss={() => dismissCard(insightCards[0].id)}

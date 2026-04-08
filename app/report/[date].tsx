@@ -424,7 +424,7 @@ function MetricItem({
 // ── Main screen ──
 
 export default function ReportDetailScreen() {
-  const { date } = useLocalSearchParams<{ date: string }>();
+  const { date, tab } = useLocalSearchParams<{ date: string; tab?: string }>();
   const { colors } = useTheme();
   const router = useRouter();
   const addToPortfolio = useBacktestStore((s) => s.addToPortfolio);
@@ -437,7 +437,10 @@ export default function ReportDetailScreen() {
   const cachedReport = useAppStore((s) => s.reports[date ?? '']);
   const setReport = useAppStore((s) => s.setReport);
 
-  const [tabIndex, setTabIndex] = useState(0);
+  const [tabIndex, setTabIndex] = useState(() => {
+    const idx = tab ? parseInt(tab, 10) : 0;
+    return isNaN(idx) ? 0 : idx;
+  });
   const [rawMarkdown, setRawMarkdown] = useState<string | null>(null);
   const [sections, setSections] = useState<Record<string, string>>({});
   const [report, setLocalReport] = useState<DailyReport | null>(cachedReport ?? null);
