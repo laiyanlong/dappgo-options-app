@@ -304,6 +304,13 @@ export default function ReportsScreen() {
           )}
 
           <View style={styles.reportCardContent}>
+            {/* Chevron — indicates tappable */}
+            <Ionicons
+              name="chevron-forward"
+              size={18}
+              color={colors.tabInactive}
+              style={{ position: 'absolute', right: 12, top: 18 }}
+            />
             {/* Header row */}
             <View style={styles.cardHeader}>
               <Text style={[styles.cardDate, { color: colors.textHeading }]}>

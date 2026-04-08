@@ -16,8 +16,8 @@ export const darkColors = {
   gold: '#e8b84b',             // warmer, more luxurious gold
 
   // Semantic colors — financial standard
-  positive: '#2dd4a8',         // teal-green (easier on eyes than neon)
-  negative: '#f06570',         // soft coral-red (not harsh)
+  positive: '#00c087',         // teal-green (easier on eyes than neon)
+  negative: '#ff4757',         // soft coral-red (not harsh)
 
   // Structure
   border: '#232345',           // subtle borders
@@ -38,8 +38,8 @@ export const lightColors = {
   accent: '#4f5bd5',
   accentDark: '#3d47b0',
   gold: '#c49b2a',
-  positive: '#1a9f7c',
-  negative: '#d94452',
+  positive: '#00a76f',
+  negative: '#e53e3e',
   border: '#e4e6ee',
   borderHover: '#4f5bd5',
   navBg: 'rgba(245, 246, 250, 0.92)',
