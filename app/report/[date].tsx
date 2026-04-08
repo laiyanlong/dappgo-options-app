@@ -33,6 +33,70 @@ import type { DailyReport, TickerReport } from '../../src/utils/types';
 // ── Tab keys (internal) ──
 const TAB_KEYS = ['overview', 'options', 'strategy', 'model', 'ai'];
 
+// ── Parse markdown tables into structured data for card rendering ──
+
+interface TableBlock {
+  type: 'table';
+  title: string;
+  headers: string[];
+  rows: { cells: string[]; isHighlight: boolean }[];
+}
+interface TextBlock {
+  type: 'text';
+  content: string;
+}
+
+function parseMarkdownTables(markdown: string): (TableBlock | TextBlock)[] {
+  const blocks: (TableBlock | TextBlock)[] = [];
+  const lines = markdown.split('\n');
+  let i = 0;
+  let textBuffer = '';
+  let lastHeading = '';
+
+  while (i < lines.length) {
+    const line = lines[i];
+
+    // Track headings for table titles
+    if (line.startsWith('**') || line.startsWith('### ') || line.startsWith('## ')) {
+      lastHeading = line.replace(/[*#]+\s*/g, '').trim();
+    }
+
+    // Detect table start (header row with |)
+    if (line.includes('|') && i + 1 < lines.length && lines[i + 1].includes('---')) {
+      // Flush text buffer
+      if (textBuffer.trim()) {
+        blocks.push({ type: 'text', content: textBuffer.trim() });
+        textBuffer = '';
+      }
+
+      // Parse header
+      const headers = line.split('|').map(h => h.trim()).filter(Boolean);
+      i += 2; // Skip header + separator
+
+      // Parse rows
+      const rows: TableBlock['rows'] = [];
+      while (i < lines.length && lines[i].includes('|')) {
+        const cells = lines[i].split('|').map(c => c.trim()).filter(Boolean);
+        const isHighlight = lines[i].includes('★');
+        rows.push({ cells, isHighlight });
+        i++;
+      }
+
+      blocks.push({ type: 'table', title: lastHeading, headers, rows });
+      lastHeading = '';
+    } else {
+      textBuffer += line + '\n';
+      i++;
+    }
+  }
+
+  if (textBuffer.trim()) {
+    blocks.push({ type: 'text', content: textBuffer.trim() });
+  }
+
+  return blocks;
+}
+
 // ── Section rendering helpers ──
 
 function SectionBlock({
@@ -85,20 +149,57 @@ function SectionBlock({
   };
 
   if (hasTable) {
-    // Wrap table-heavy content in horizontal scroll so the user can pan columns
+    // Parse markdown tables into native card layout for mobile readability
+    const tableCards = parseMarkdownTables(content);
+
     return (
       <View style={styles.sectionBlock}>
-        <Text style={{ color: colors.textMuted, fontSize: 12, marginBottom: 6 }}>← Scroll horizontally to see full table →</Text>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator
-          bounces
-          scrollEventThrottle={16}
-        >
-          <View style={{ minWidth: screenWidth * 1.8 }}>
-            <Markdown style={mdStyles}>{content}</Markdown>
-          </View>
-        </ScrollView>
+        {/* Render non-table content as markdown */}
+        {tableCards.map((block, i) => {
+          if (block.type === 'text') {
+            return <Markdown key={i} style={mdStyles}>{block.content}</Markdown>;
+          }
+          // Table → render as vertical cards (each row = one card)
+          return (
+            <View key={i} style={{ marginVertical: 8 }}>
+              {block.title && (
+                <Text style={{ color: colors.gold, fontSize: 15, fontWeight: '600', marginBottom: 8 }}>
+                  {block.title}
+                </Text>
+              )}
+              {block.rows.map((row, ri) => (
+                <View
+                  key={ri}
+                  style={{
+                    backgroundColor: row.isHighlight ? colors.gold + '12' : colors.backgroundAlt,
+                    borderRadius: 10,
+                    padding: 12,
+                    marginBottom: 6,
+                    borderWidth: row.isHighlight ? 1 : 0.5,
+                    borderColor: row.isHighlight ? colors.gold : colors.border,
+                  }}
+                >
+                  {/* Show key metrics in 2-column grid */}
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4 }}>
+                    {row.cells.map((cell, ci) => (
+                      <View key={ci} style={{ width: '48%', paddingVertical: 3 }}>
+                        <Text style={{ color: colors.textMuted, fontSize: 11, fontWeight: '600' }}>
+                          {block.headers[ci] || ''}
+                        </Text>
+                        <Text style={{ color: colors.textHeading, fontSize: 14, fontWeight: '500', fontFamily: 'SpaceMono' }}>
+                          {cell}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                  {row.isHighlight && (
+                    <Text style={{ color: colors.gold, fontSize: 11, fontWeight: '700', marginTop: 4 }}>★ Recommended</Text>
+                  )}
+                </View>
+              ))}
+            </View>
+          );
+        })}
       </View>
     );
   }
