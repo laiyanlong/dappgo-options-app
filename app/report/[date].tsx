@@ -8,6 +8,7 @@ import {
   Share,
   StyleSheet,
   Alert,
+  useWindowDimensions,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -38,6 +39,8 @@ function SectionBlock({
   content: string;
   colors: any;
 }) {
+  const { width: screenWidth } = useWindowDimensions();
+
   if (!content) {
     return (
       <View style={styles.emptySection}>
@@ -47,6 +50,8 @@ function SectionBlock({
       </View>
     );
   }
+
+  const hasTable = content.includes('|---') || content.includes('| ---');
 
   const mdStyles = {
     body: { color: colors.text, fontSize: 14, lineHeight: 22 },
@@ -65,14 +70,33 @@ function SectionBlock({
     fence: { color: colors.text, backgroundColor: colors.backgroundAlt, padding: 12, borderRadius: 8, fontSize: 12, marginVertical: 8 },
     table: { borderColor: colors.border, marginVertical: 8 },
     thead: { backgroundColor: colors.backgroundAlt },
-    th: { color: colors.textHeading, fontWeight: '600' as const, padding: 6, borderColor: colors.border },
-    td: { color: colors.text, padding: 6, borderColor: colors.border },
+    th: { color: colors.textHeading, fontWeight: '600' as const, padding: 8, paddingHorizontal: 10, borderColor: colors.border, fontSize: 13, minWidth: 72 },
+    td: { color: colors.text, padding: 8, paddingHorizontal: 10, borderColor: colors.border, fontSize: 13, minWidth: 72 },
     tr: { borderColor: colors.border },
     blockquote: { backgroundColor: colors.backgroundAlt, borderLeftColor: colors.accent, borderLeftWidth: 3, paddingLeft: 12, paddingVertical: 4, marginVertical: 6 },
     hr: { backgroundColor: colors.border, marginVertical: 12 },
     link: { color: colors.accent },
     image: { marginVertical: 8 },
   };
+
+  if (hasTable) {
+    // Wrap table-heavy content in horizontal scroll so the user can pan columns
+    const tableMinWidth = Math.max(screenWidth - 32, 900);
+    return (
+      <View style={styles.sectionBlock}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator
+          bounces
+          contentContainerStyle={{ minWidth: tableMinWidth }}
+        >
+          <View style={{ minWidth: tableMinWidth }}>
+            <Markdown style={mdStyles}>{content}</Markdown>
+          </View>
+        </ScrollView>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.sectionBlock}>
@@ -494,36 +518,40 @@ export default function ReportDetailScreen() {
         )}
       </ScrollView>
 
-      {/* Action buttons */}
+      {/* Action buttons — 2-row layout */}
       <View style={[styles.actionBar, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
+        {/* Row 1: Primary action */}
         <TouchableOpacity
           onPress={handleAddToBacktest}
-          style={[styles.actionBtn, { backgroundColor: colors.accent }]}
+          style={[styles.actionBtnFull, { backgroundColor: colors.accent }]}
         >
           <Text style={styles.actionBtnText}>+ Add to Backtest</Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          onPress={handleCopySummary}
-          style={[styles.actionBtn, { backgroundColor: colors.backgroundAlt, borderWidth: 1, borderColor: colors.border }]}
-        >
-          <Text style={[styles.actionBtnText, { color: colors.textHeading }]}>
-            {'\uD83D\uDCCB'} Copy
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={handleShare}
-          style={[styles.actionBtn, { backgroundColor: colors.backgroundAlt, borderWidth: 1, borderColor: colors.border }]}
-        >
-          <Text style={[styles.actionBtnText, { color: colors.textHeading }]}>Share</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={handleCopyLink}
-          style={[styles.actionBtn, { backgroundColor: colors.backgroundAlt, borderWidth: 1, borderColor: linkCopied ? colors.positive : colors.border }]}
-        >
-          <Text style={[styles.actionBtnText, { color: linkCopied ? colors.positive : colors.textHeading }]}>
-            {linkCopied ? 'Copied!' : '\uD83D\uDD17 Link'}
-          </Text>
-        </TouchableOpacity>
+        {/* Row 2: Secondary actions */}
+        <View style={styles.actionRow}>
+          <TouchableOpacity
+            onPress={handleCopySummary}
+            style={[styles.actionBtnSecondary, { backgroundColor: colors.backgroundAlt, borderWidth: 1, borderColor: colors.border }]}
+          >
+            <Text style={[styles.actionBtnText, { color: colors.textHeading }]}>
+              {'\uD83D\uDCCB'} Copy
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={handleShare}
+            style={[styles.actionBtnSecondary, { backgroundColor: colors.backgroundAlt, borderWidth: 1, borderColor: colors.border }]}
+          >
+            <Text style={[styles.actionBtnText, { color: colors.textHeading }]}>Share</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={handleCopyLink}
+            style={[styles.actionBtnSecondary, { backgroundColor: colors.backgroundAlt, borderWidth: 1, borderColor: linkCopied ? colors.positive : colors.border }]}
+          >
+            <Text style={[styles.actionBtnText, { color: linkCopied ? colors.positive : colors.textHeading }]}>
+              {linkCopied ? 'Copied!' : '\uD83D\uDD17 Link'}
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   );
@@ -611,18 +639,26 @@ const styles = StyleSheet.create({
   emptySection: { paddingVertical: 48, alignItems: 'center' },
   emptySectionText: { fontSize: 14 },
 
-  // Action bar
+  // Action bar — 2-row layout
   actionBar: {
-    flexDirection: 'row',
-    gap: 12,
+    gap: 8,
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingTop: 12,
     paddingBottom: 32,
     borderTopWidth: StyleSheet.hairlineWidth,
   },
-  actionBtn: {
+  actionBtnFull: {
+    paddingVertical: 13,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  actionRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  actionBtnSecondary: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: 11,
     borderRadius: 10,
     alignItems: 'center',
   },

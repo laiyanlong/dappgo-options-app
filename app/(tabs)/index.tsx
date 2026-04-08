@@ -122,9 +122,11 @@ interface TopPick {
 const PriceCard = React.memo(function PriceCard({
   item,
   colors,
+  isDark,
 }: {
   item: LivePrice;
   colors: ReturnType<typeof useTheme>['colors'];
+  isDark: boolean;
 }) {
   const isPositive = item.change_pct >= 0;
   const changeColor = isPositive ? colors.positive : colors.negative;
@@ -141,11 +143,11 @@ const PriceCard = React.memo(function PriceCard({
           ...Platform.select({
             ios: {
               shadowColor: '#000',
-              shadowOffset: { width: 0, height: 4 },
-              shadowOpacity: 0.25,
-              shadowRadius: 12,
+              shadowOffset: { width: 0, height: isDark ? 4 : 2 },
+              shadowOpacity: isDark ? 0.25 : 0.08,
+              shadowRadius: isDark ? 12 : 6,
             },
-            android: { elevation: 8 },
+            android: { elevation: isDark ? 8 : 3 },
           }),
         },
       ]}
@@ -263,7 +265,7 @@ const WatchlistCard = React.memo(function WatchlistCard({
 // ── Main Screen ──
 
 export default function DashboardScreen() {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const router = useRouter();
   const backtestSetSimpleInput = useBacktestStore((s) => s.setSimpleInput);
   const backtestSetMode = useBacktestStore((s) => s.setMode);
@@ -394,8 +396,8 @@ export default function DashboardScreen() {
   const priceKeyExtractor = useCallback((item: LivePrice) => item.symbol, []);
 
   const renderPriceCard = useCallback(
-    ({ item }: { item: LivePrice }) => <PriceCard item={item} colors={colors} />,
-    [colors],
+    ({ item }: { item: LivePrice }) => <PriceCard item={item} colors={colors} isDark={isDark} />,
+    [colors, isDark],
   );
 
   const watchlistKeyExtractor = useCallback(
@@ -591,6 +593,8 @@ export default function DashboardScreen() {
         <TickerTape
           prices={tickerTapeData}
           backgroundColor={colors.backgroundAlt}
+          textColor={colors.text}
+          textMutedColor={colors.textMuted}
         />
       )}
 

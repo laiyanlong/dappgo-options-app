@@ -12,13 +12,22 @@ interface TickerTapeProps {
   prices: TickerTapePrice[];
   /** Background color of the tape bar */
   backgroundColor?: string;
+  /** Primary text color for symbol and price (defaults to #ffffff) */
+  textColor?: string;
+  /** Muted text color for separator (defaults to #444) */
+  textMutedColor?: string;
 }
 
 /**
  * Bloomberg-style horizontal auto-scrolling ticker tape.
  * Content is duplicated for seamless looping via Animated.loop.
  */
-export function TickerTape({ prices, backgroundColor = '#0a0a1a' }: TickerTapeProps) {
+export function TickerTape({
+  prices,
+  backgroundColor = '#0a0a1a',
+  textColor = '#ffffff',
+  textMutedColor = '#444',
+}: TickerTapeProps) {
   const scrollAnim = useRef(new Animated.Value(0)).current;
 
   // Each ticker item is roughly 200px wide; duplicate for seamless loop
@@ -51,12 +60,12 @@ export function TickerTape({ prices, backgroundColor = '#0a0a1a' }: TickerTapePr
 
       return (
         <View key={`${keyPrefix}-${p.symbol}`} style={styles.item}>
-          <Text style={styles.symbol}>{p.symbol}</Text>
-          <Text style={styles.price}>${p.price.toFixed(2)}</Text>
+          <Text style={[styles.symbol, { color: textColor }]}>{p.symbol}</Text>
+          <Text style={[styles.price, { color: textColor }]}>${p.price.toFixed(2)}</Text>
           <Text style={[styles.change, { color }]}>
             {arrow}{sign}{p.changePct.toFixed(1)}%
           </Text>
-          <Text style={styles.separator}>|</Text>
+          <Text style={[styles.separator, { color: textMutedColor }]}>|</Text>
         </View>
       );
     });
@@ -99,14 +108,12 @@ const styles = StyleSheet.create({
     fontFamily: 'Courier',
     fontSize: 12,
     fontWeight: '700',
-    color: '#ffffff',
     marginRight: 6,
   },
   price: {
     fontFamily: 'Courier',
     fontSize: 12,
     fontWeight: '600',
-    color: '#e0e0e0',
     marginRight: 4,
   },
   change: {
@@ -117,7 +124,6 @@ const styles = StyleSheet.create({
   separator: {
     fontFamily: 'Courier',
     fontSize: 12,
-    color: '#444',
     marginLeft: 8,
   },
 });
