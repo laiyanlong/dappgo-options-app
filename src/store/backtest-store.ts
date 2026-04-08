@@ -60,7 +60,14 @@ export const useBacktestStore = create<BacktestState>()(
       setSimpleInput: (input) =>
         set((s) => ({ simpleInput: { ...s.simpleInput, ...input } })),
       addToPortfolio: (input) =>
-        set((s) => ({ portfolio: [...s.portfolio, input] })),
+        set((s) => {
+          // Deduplicate: same symbol + strategy + strike
+          const isDuplicate = s.portfolio.some(
+            (p) => p.symbol === input.symbol && p.strategy === input.strategy && p.strike === input.strike
+          );
+          if (isDuplicate) return s;
+          return { portfolio: [...s.portfolio, input] };
+        }),
       removeFromPortfolio: (index) =>
         set((s) => ({
           portfolio: s.portfolio.filter((_, i) => i !== index),

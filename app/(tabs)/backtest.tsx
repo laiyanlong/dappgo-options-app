@@ -707,16 +707,37 @@ export default function BacktestScreen() {
             </View>
           )}
 
-          {/* ── Professional Result Card(s) ── */}
-          {results.map((r, idx) => {
+          {/* ── Professional Result Card(s) — sorted best→worst ── */}
+          {[...results]
+            .sort((a, b) => {
+              // Composite: 40% Sharpe + 30% Win Rate + 20% P&L + 10% Profit Factor
+              const scoreA = (a.sharpe * 0.4) + (a.winRate * 0.003) + (a.totalPnl > 0 ? 0.2 : -0.1) + (Math.min(a.profitFactor, 5) * 0.02);
+              const scoreB = (b.sharpe * 0.4) + (b.winRate * 0.003) + (b.totalPnl > 0 ? 0.2 : -0.1) + (Math.min(b.profitFactor, 5) * 0.02);
+              return scoreB - scoreA;
+            })
+            .map((r, idx) => {
             const isProfitable = r.totalPnl >= 0;
             const bgTint = isProfitable ? `${colors.positive}08` : `${colors.negative}08`;
+            const rank = idx + 1;
+            const rankColor = rank === 1 ? colors.gold : rank === 2 ? '#c0c0c0' : rank === 3 ? '#cd7f32' : colors.textMuted;
+            const rankEmoji = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `#${rank}`;
+            const isFirst = rank === 1 && results.length > 1;
 
             return (
               <Card
                 key={idx}
-                style={{ backgroundColor: bgTint }}
+                variant={isFirst ? 'highlight' : 'default'}
+                style={{ backgroundColor: bgTint, borderColor: isFirst ? colors.gold : undefined }}
               >
+                {/* Rank badge */}
+                {results.length > 1 && (
+                  <View style={[styles.rankBadge, { backgroundColor: rankColor + '20', borderColor: rankColor }]}>
+                    <Text style={[styles.rankText, { color: rankColor }]}>
+                      {rankEmoji} {rank === 1 ? 'BEST' : rank === results.length ? 'WORST' : `Rank ${rank}`}
+                    </Text>
+                  </View>
+                )}
+
                 <View style={styles.summaryHeader}>
                   <View>
                     <Text style={[styles.summaryTicker, { color: colors.textHeading }]}>
@@ -1308,6 +1329,19 @@ const styles = StyleSheet.create<Record<string, any>>({
   bestBannerText: { fontSize: 14, fontWeight: '700', textAlign: 'center' },
 
   // Summary card
+  rankBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 12,
+  },
+  rankText: {
+    fontSize: 13,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
   summaryHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
