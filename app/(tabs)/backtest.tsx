@@ -1015,7 +1015,7 @@ export default function BacktestScreen() {
             {'\uD83D\uDCDA'} {t('backtest.history')}
           </Text>
           <Text style={[styles.simNote, { color: colors.textMuted }]}>
-            {savedResults.length} saved result{savedResults.length !== 1 ? 's' : ''}. Swipe left to delete.
+            {savedResults.length} saved result{savedResults.length !== 1 ? 's' : ''}. Long press to delete.
           </Text>
           {savedResults.map((sr, idx) => (
             <SwipeToDeleteCard
@@ -1144,48 +1144,25 @@ function SwipeToDeleteCard({
   onDelete: () => void;
   children: React.ReactNode;
 }) {
-  const translateX = useRef(new Animated.Value(0)).current;
-  const threshold = -80;
-
-  const panResponder = useRef(
-    PanResponder.create({
-      onMoveShouldSetPanResponder: (_, g) =>
-        Math.abs(g.dx) > 10 && Math.abs(g.dx) > Math.abs(g.dy),
-      onPanResponderMove: (_, g) => {
-        if (g.dx < 0) {
-          translateX.setValue(g.dx);
-        }
-      },
-      onPanResponderRelease: (_, g) => {
-        if (g.dx < threshold) {
-          Animated.timing(translateX, {
-            toValue: -SCREEN_WIDTH,
-            duration: 200,
-            useNativeDriver: true,
-          }).start(() => onDelete());
-        } else {
-          Animated.spring(translateX, {
-            toValue: 0,
-            useNativeDriver: true,
-          }).start();
-        }
-      },
-    })
-  ).current;
+  const handleLongPress = () => {
+    Alert.alert(
+      'Delete',
+      'Remove this backtest result?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: onDelete },
+      ]
+    );
+  };
 
   return (
-    <View style={{ overflow: 'hidden' }}>
-      {/* Delete background */}
-      <View style={swipeStyles.deleteBackground}>
-        <Text style={swipeStyles.deleteText}>Delete</Text>
-      </View>
-      <Animated.View
-        style={{ transform: [{ translateX }] }}
-        {...panResponder.panHandlers}
-      >
-        {children}
-      </Animated.View>
-    </View>
+    <TouchableOpacity
+      activeOpacity={0.6}
+      onLongPress={handleLongPress}
+      delayLongPress={500}
+    >
+      {children}
+    </TouchableOpacity>
   );
 }
 
