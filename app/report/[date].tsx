@@ -20,6 +20,7 @@ import { fetchReportContent } from '../../src/data/github-api';
 import { parseReport, extractTickerMetrics } from '../../src/data/parser';
 import { formatDollar, formatPct, formatDateFull } from '../../src/utils/format';
 import { GITHUB_OWNER, GITHUB_REPO } from '../../src/utils/constants';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Markdown from 'react-native-markdown-display';
 import { Card } from '../../src/components/ui/Card';
 import { Badge } from '../../src/components/ui/Badge';
@@ -428,6 +429,7 @@ export default function ReportDetailScreen() {
   const router = useRouter();
   const addToPortfolio = useBacktestStore((s) => s.addToPortfolio);
   const t = useT();
+  const insets = useSafeAreaInsets();
   const language = useSettingsStore((s) => s.language);
 
   const TABS = [t('report.overview'), t('report.options'), t('report.strategy'), t('report.model'), t('report.ai')];
@@ -634,7 +636,7 @@ export default function ReportDetailScreen() {
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
       {/* Header */}
-      <View style={[styles.header, { borderBottomColor: colors.border }]}>
+      <View style={[styles.header, { borderBottomColor: colors.border, paddingTop: insets.top + 8 }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <Text style={[styles.backText, { color: colors.accent }]}>{'\u2190'} {t('report.back')}</Text>
         </TouchableOpacity>
@@ -767,11 +769,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: 56,
     paddingBottom: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  backBtn: { width: 72 },
+  backBtn: { width: 72, minHeight: 44, justifyContent: 'center' },
   backText: { fontSize: 16, fontWeight: '600' },
   headerCenter: { flex: 1, alignItems: 'center' },
   headerDate: { fontSize: 17, fontWeight: '700' },
@@ -860,6 +861,8 @@ const styles = StyleSheet.create({
     paddingVertical: 11,
     borderRadius: 10,
     alignItems: 'center',
+    minHeight: 44,
+    justifyContent: 'center',
   },
   actionBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
 
@@ -880,7 +883,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: 6,
-    minHeight: 36,
+    minHeight: 44,
   },
   glossaryToggleText: {
     fontSize: 13,

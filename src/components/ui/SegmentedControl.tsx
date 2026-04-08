@@ -85,8 +85,12 @@ export function SegmentedControl({
             <Text
               style={[
                 styles.label,
-                { color: active ? '#fff' : colors.textMuted },
+                {
+                  color: active ? '#fff' : colors.textMuted,
+                  fontSize: segmentCount >= 5 ? 12 : 14,
+                },
               ]}
+              numberOfLines={1}
             >
               {label}
             </Text>

@@ -35,7 +35,7 @@ export const InsightCard = React.memo(function InsightCard({
       <TouchableOpacity
         onPress={onDismiss}
         style={styles.dismissBtn}
-        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
       >
         <Ionicons name="close" size={16} color={colors.tabInactive} />
       </TouchableOpacity>
@@ -71,11 +71,11 @@ const styles = StyleSheet.create({
   },
   dismissBtn: {
     position: 'absolute',
-    top: 10,
-    right: 10,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    top: 6,
+    right: 6,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -8,6 +8,7 @@ import {
   Platform,
   Animated,
   ActivityIndicator,
+  Dimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -780,7 +781,7 @@ export default function DashboardScreen() {
                     <Text style={[styles.timingAction, { color: actionStyle.color }]}>
                       {entry.action.replace('_', ' ')}
                     </Text>
-                    <Text style={[styles.timingRec, { color: colors.textMuted }]} numberOfLines={1}>
+                    <Text style={[styles.timingRec, { color: colors.textMuted }]} numberOfLines={2}>
                       {entry.overall_recommendation}
                     </Text>
                     <Text style={[styles.timingScore, { color: colors.textMuted }]}>
@@ -937,6 +938,7 @@ const styles = StyleSheet.create<Record<string, any>>({
   timingRec: {
     flex: 1,
     fontSize: 12,
+    lineHeight: 18,
   },
   timingScore: {
     fontSize: 11,
@@ -1080,7 +1082,7 @@ const styles = StyleSheet.create<Record<string, any>>({
     gap: spacing.sm,
   },
   watchlistCard: {
-    width: 160,
+    width: Math.min(160, (Dimensions.get('window').width - 48) * 0.45),
     padding: spacing.md,
     borderRadius: borderRadius.lg,
     borderWidth: 1,
@@ -1094,11 +1096,12 @@ const styles = StyleSheet.create<Record<string, any>>({
     padding: 2,
   },
   watchlistBacktestBtn: {
-    marginTop: spacing.xs,
+    marginTop: spacing.sm,
     borderWidth: 1,
-    borderRadius: 6,
-    paddingVertical: 4,
+    borderRadius: 8,
+    paddingVertical: 10,
     alignItems: 'center' as const,
+    minHeight: 36,
   },
   watchlistBacktestText: {
     fontSize: 11,

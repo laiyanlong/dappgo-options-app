@@ -403,6 +403,7 @@ export default function BacktestScreen() {
                       { left: `${((v - 3) / 12) * 100}%` },
                     ]}
                     onPress={() => setSimpleInput({ otmPct: v })}
+                    hitSlop={{ top: 14, bottom: 14, left: 8, right: 8 }}
                   >
                     <Text
                       style={[
@@ -807,7 +808,7 @@ export default function BacktestScreen() {
               <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>
                 SIDE-BY-SIDE COMPARISON
               </Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} scrollEventThrottle={16} bounces>
+              <ScrollView horizontal showsHorizontalScrollIndicator={true} scrollEventThrottle={16} bounces>
                 <View>
                   {/* Header row */}
                   <View style={[styles.tableRow, { borderBottomColor: colors.border }]}>
@@ -1269,7 +1270,7 @@ const styles = StyleSheet.create<Record<string, any>>({
   // Recent symbols quick access
   recentRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10, paddingTop: 8, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#232345' },
   recentLabel: { fontSize: 13, fontWeight: '500' },
-  recentChip: { paddingHorizontal: 10, paddingVertical: 4 },
+  recentChip: { paddingHorizontal: 12, paddingVertical: 10, minHeight: 36, borderRadius: 8 },
   recentChipText: { fontSize: 14, fontWeight: '600' },
 
   // Chips — 44pt minimum touch target, pill style matching Reports

@@ -562,11 +562,6 @@ export default function ReportsScreen() {
           updateCellsBatchingPeriod={50}
           windowSize={5}
           removeClippedSubviews={Platform.OS !== 'web'}
-          getItemLayout={(_, index) => ({
-            length: 180,
-            offset: 180 * index,
-            index,
-          })}
           refreshControl={
             <RefreshControl
               refreshing={isLoading}
