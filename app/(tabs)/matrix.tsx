@@ -189,20 +189,35 @@ export default function MatrixScreen() {
     [selectedTicker, typeIndex, setSimpleInput, router]
   );
 
+  const setBacktestMode = useBacktestStore((s) => s.setMode);
+
   const handleCompareBacktest = useCallback(() => {
-    compareItems.forEach((item) => {
-      addToPortfolio({
+    if (compareItems.length === 1) {
+      // Single item → Simple mode with pre-filled params
+      const item = compareItems[0];
+      setSimpleInput({
         symbol: item.symbol,
         strategy: 'sell_put',
         otmPct: 5,
-        period: '6mo',
-        strike: item.strike,
       });
-    });
+      setBacktestMode('simple');
+    } else {
+      // Multiple items → Advanced mode with portfolio
+      compareItems.forEach((item) => {
+        addToPortfolio({
+          symbol: item.symbol,
+          strategy: 'sell_put',
+          otmPct: 5,
+          period: '6mo',
+          strike: item.strike,
+        });
+      });
+      setBacktestMode('advanced');
+    }
     clearAllCompare();
     setCompareSheetOpen(false);
     router.navigate('/(tabs)/backtest');
-  }, [compareItems, addToPortfolio, clearAllCompare, router]);
+  }, [compareItems, addToPortfolio, setSimpleInput, setBacktestMode, clearAllCompare, router]);
 
   // ── Render helpers ──
 
@@ -391,7 +406,7 @@ export default function MatrixScreen() {
     </>
   ), [
     colors, router, selectedTicker, loading, currentPrice,
-    expiries, selectedExpiryIdx, typeIndex, strikes, bestStrike, matrix,
+    expiries, selectedExpiryIdx, typeIndex, strikes, bestStrike, matrix, t,
   ]);
 
   // ── Empty state — rendered inside FlatList so the stable header stays put ──
@@ -444,7 +459,7 @@ export default function MatrixScreen() {
         message={`No ${typeIndex === 0 ? 'put' : 'call'} data for this expiry`}
       />
     );
-  }, [loading, matrix, selectedTicker, colors, typeIndex, setDashboardData, setMatrix]);
+  }, [loading, matrix, selectedTicker, colors, typeIndex, setDashboardData, setMatrix, t]);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>

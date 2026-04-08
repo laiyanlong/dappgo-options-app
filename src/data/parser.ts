@@ -6,11 +6,16 @@ import type { TickerReport, OptionsExpiry, OptionEntry } from '../utils/types';
  */
 export function parseReport(markdown: string): {
   date: string;
+  generatedAt: string;
   tickers: string[];
   sections: Record<string, string>;
 } {
   const dateMatch = markdown.match(/每日選擇權策略報告 — (\d{4}-\d{2}-\d{2})/);
   const date = dateMatch?.[1] || '';
+
+  // Extract generation timestamp: **產生時間**：2026-04-07 13:00 UTC
+  const timeMatch = markdown.match(/產生時間[：:]\s*(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2})/);
+  const generatedAt = timeMatch?.[1] || '';
 
   // Split by ## ticker sections
   const tickerPattern = /^## ([A-Z]{1,5})$/gm;
@@ -34,7 +39,7 @@ export function parseReport(markdown: string): {
     sections[sectionStarts[i].name] = markdown.slice(sectionStarts[i].start, end).trim();
   }
 
-  return { date, tickers, sections };
+  return { date, generatedAt, tickers, sections };
 }
 
 /**

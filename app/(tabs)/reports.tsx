@@ -183,7 +183,7 @@ export default function ReportsScreen() {
             expiries: [],
           };
         });
-        const report: DailyReport = { date: parsed.date || date, tickers };
+        const report: DailyReport = { date: parsed.date || date, generatedAt: parsed.generatedAt, tickers };
         setReport(date, report);
         return report;
       } catch {
@@ -288,7 +288,9 @@ export default function ReportsScreen() {
               <Text style={[styles.cardDate, { color: colors.textHeading }]}>
                 {formatDate(date)}
               </Text>
-              <Text style={[styles.cardDateFull, { color: colors.textMuted }]}>{date}</Text>
+              <Text style={[styles.cardDateFull, { color: colors.textMuted }]}>
+                {report?.generatedAt ? `${date} · ${report.generatedAt.split(' ')[1]} UTC` : date}
+              </Text>
             </View>
 
             {/* Ticker summaries with emoji verdicts */}

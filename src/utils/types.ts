@@ -44,6 +44,7 @@ export interface OptionsExpiry {
 // ── Report ──
 export interface DailyReport {
   date: string;
+  generatedAt?: string; // e.g. "2026-04-07 13:00"
   tickers: TickerReport[];
   modelVerdict?: ModelVerdict;
   aiCommentary?: string;
