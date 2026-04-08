@@ -681,7 +681,7 @@ const styles = StyleSheet.create<Record<string, any>>({
     overflow: 'hidden',
   },
   leftBar: {
-    width: 5,
+    width: 4,
   },
   unreadBadge: {
     position: 'absolute',

@@ -144,7 +144,7 @@ const PriceCard = React.memo(function PriceCard({
           borderColor: colors.border,
           borderWidth: 1,
           borderLeftColor: changeColor,
-          borderLeftWidth: 5,
+          borderLeftWidth: 4,
         },
         cardShadow(isDark),
       ]}
