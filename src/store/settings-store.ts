@@ -18,10 +18,13 @@ interface SettingsState {
   lastViewedReportCount: number;
   lastViewedMatrixCount: number;
   viewedReportDates: string[];
+  dismissedInsightCards: string[];
   setLastViewedReportCount: (count: number) => void;
   setLastViewedMatrixCount: (count: number) => void;
   markReportViewed: (date: string) => void;
   isReportViewed: (date: string) => boolean;
+  dismissInsightCard: (id: string) => void;
+  resetDismissedCards: () => void;
   setThemeMode: (mode: 'dark' | 'light' | 'auto') => void;
   setLanguage: (lang: 'zh' | 'en') => void;
   setTickers: (tickers: string[]) => void;
@@ -52,6 +55,7 @@ export const useSettingsStore = create<SettingsState>()(
       lastViewedReportCount: 0,
       lastViewedMatrixCount: 0,
       viewedReportDates: [],
+      dismissedInsightCards: [],
       setLastViewedReportCount: (count) => set({ lastViewedReportCount: count }),
       setLastViewedMatrixCount: (count) => set({ lastViewedMatrixCount: count }),
       markReportViewed: (date) =>
@@ -62,6 +66,13 @@ export const useSettingsStore = create<SettingsState>()(
         })),
       isReportViewed: (date) =>
         get().viewedReportDates.includes(date),
+      dismissInsightCard: (id) =>
+        set((s) => ({
+          dismissedInsightCards: s.dismissedInsightCards.includes(id)
+            ? s.dismissedInsightCards
+            : [...s.dismissedInsightCards, id],
+        })),
+      resetDismissedCards: () => set({ dismissedInsightCards: [] }),
       setThemeMode: (mode) => set({ themeMode: mode }),
       setLanguage: (lang) => set({ language: lang }),
       setTickers: (tickers) => set({ tickers }),

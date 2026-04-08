@@ -29,6 +29,7 @@ import { Badge } from '../../src/components/ui/Badge';
 import { EmptyState } from '../../src/components/ui/EmptyState';
 import { SectionHeader } from '../../src/components/ui/SectionHeader';
 import { useT } from '../../src/utils/i18n';
+import { InsightCard } from '../../src/components/ui/InsightCard';
 import type { DailyReport, TickerReport } from '../../src/utils/types';
 
 // ── Filter chips ──
@@ -123,6 +124,10 @@ export default function ReportsScreen() {
   const viewedDates = useSettingsStore((s) => s.viewedReportDates);
   const markViewed = useSettingsStore((s) => s.markReportViewed);
 
+  // Insight cards
+  const dismissedCards = useSettingsStore((s) => s.dismissedInsightCards);
+  const dismissCard = useSettingsStore((s) => s.dismissInsightCard);
+
   // Preview modal state (long-press peek)
   const [previewDate, setPreviewDate] = useState<string | null>(null);
 
@@ -186,6 +191,8 @@ export default function ReportsScreen() {
           };
         });
         const report: DailyReport = { date: parsed.date || date, generatedAt: parsed.generatedAt, tickers };
+        // Attach raw sections for InsightCards (not in the type but accessed via `as any`)
+        (report as any)._sections = parsed.sections;
         setReport(date, report);
         return report;
       } catch {
@@ -238,6 +245,57 @@ export default function ReportsScreen() {
 
     return dates;
   }, [reportDates, reports, tickerFilter, dateRange, debouncedQuery]);
+
+  // ── Insight cards from latest report (dynamic — only sections with content) ──
+  const insightCards = useMemo(() => {
+    if (reportDates.length === 0) return [];
+    const latestDate = reportDates[0];
+    const latestReport = reports[latestDate];
+    if (!latestReport) return [];
+
+    // Get parsed sections from the raw markdown if available
+    const sections = (latestReport as any)._sections as Record<string, string> | undefined;
+    if (!sections) return [];
+
+    const cards: Array<{ id: string; icon: string; title: string; content: string; linkText: string; tab: number }> = [];
+
+    // Extract first meaningful paragraph from a section
+    const extractSummary = (text: string, maxLen = 120): string => {
+      const lines = text.split('\n').filter(l => l.trim() && !l.startsWith('#') && !l.startsWith('|') && !l.startsWith('---'));
+      const combined = lines.slice(0, 3).join(' ').replace(/\*\*/g, '').replace(/[#>]/g, '').trim();
+      return combined.length > maxLen ? combined.slice(0, maxLen) + '...' : combined;
+    };
+
+    // Find sections by partial key matching
+    const findSection = (keywords: string[]): string | undefined => {
+      for (const [key, val] of Object.entries(sections)) {
+        if (keywords.some(kw => key.toLowerCase().includes(kw))) return val;
+      }
+      return undefined;
+    };
+
+    const optionsContent = findSection(['選擇權', 'options', '核心表格']);
+    if (optionsContent) {
+      cards.push({ id: `options-${latestDate}`, icon: '📊', title: t('report.options'), content: extractSummary(optionsContent), linkText: t('report.options') + ' →', tab: 1 });
+    }
+
+    const strategyContent = findSection(['策略', 'strategy', '多腳']);
+    if (strategyContent) {
+      cards.push({ id: `strategy-${latestDate}`, icon: '🎯', title: t('report.strategy'), content: extractSummary(strategyContent), linkText: t('report.strategy') + ' →', tab: 2 });
+    }
+
+    const modelContent = findSection(['模型', 'model', '綜合評價']);
+    if (modelContent) {
+      cards.push({ id: `model-${latestDate}`, icon: '🧠', title: t('report.model'), content: extractSummary(modelContent), linkText: t('report.model') + ' →', tab: 3 });
+    }
+
+    const aiContent = findSection(['ai', 'gemini', '市場解讀']);
+    if (aiContent) {
+      cards.push({ id: `ai-${latestDate}`, icon: '🤖', title: 'AI', content: extractSummary(aiContent), linkText: 'AI →', tab: 4 });
+    }
+
+    return cards.filter(c => !dismissedCards.includes(c.id));
+  }, [reportDates, reports, dismissedCards, t]);
 
   // ── Stable key extractor ──
   const reportKeyExtractor = useCallback((d: string) => d, []);
@@ -449,6 +507,40 @@ export default function ReportsScreen() {
           )}
         </View>
 
+        {/* ── Insight Cards (dynamic from latest report) ── */}
+        {insightCards.length > 0 && (
+          <View style={{ paddingHorizontal: 16, marginBottom: 8 }}>
+            <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>
+              {t('reports.todayInsights') || "TODAY'S INSIGHTS"}
+            </Text>
+            {insightCards.map((card) => (
+              <InsightCard
+                key={card.id}
+                icon={card.icon}
+                title={card.title}
+                content={card.content}
+                linkText={card.linkText}
+                onPress={() => {
+                  const latestDate = reportDates[0];
+                  if (latestDate) {
+                    markViewed(latestDate);
+                    router.push({ pathname: '/report/[date]', params: { date: latestDate } });
+                  }
+                }}
+                onDismiss={() => dismissCard(card.id)}
+                accentColor={colors.accent}
+              />
+            ))}
+          </View>
+        )}
+
+        {/* Section label for past reports */}
+        {filteredDates.length > 0 && (
+          <Text style={[styles.sectionLabel, { color: colors.textMuted, paddingHorizontal: 16, marginBottom: 8 }]}>
+            {t('reports.pastReports') || 'PAST REPORTS'}
+          </Text>
+        )}
+
         {/* Report list */}
         <FlatList
           data={filteredDates}
@@ -593,6 +685,14 @@ const styles = StyleSheet.create<Record<string, any>>({
   },
 
   // List
+  sectionLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    marginBottom: 10,
+    marginTop: 8,
+  },
   list: { paddingHorizontal: 16, paddingBottom: 32 },
 
   // Card

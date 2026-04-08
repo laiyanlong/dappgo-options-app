@@ -30,6 +30,8 @@ const strings: Record<string, Record<Lang, string>> = {
   // Reports
   'reports.title': { en: 'Reports', zh: '報告' },
   'reports.count': { en: 'reports', zh: '份報告' },
+  'reports.todayInsights': { en: "TODAY'S INSIGHTS", zh: '今日洞察' },
+  'reports.pastReports': { en: 'PAST REPORTS', zh: '歷史報告' },
   'reports.search': { en: 'Search reports...', zh: '搜尋報告...' },
   'reports.all': { en: 'All', zh: '全部' },
   'reports.week': { en: 'Week', zh: '本週' },
