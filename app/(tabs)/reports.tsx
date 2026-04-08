@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   View,
   Text,
-  TextInput,
   FlatList,
   TouchableOpacity,
   ScrollView,
@@ -138,18 +137,7 @@ export default function ReportsScreen() {
   const [error, setError] = useState<string | null>(null);
   const [tickerFilter, setTickerFilter] = useState('All');
   const [dateRange, setDateRange] = useState<DateRange>('Month');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [debouncedQuery, setDebouncedQuery] = useState('');
-  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Debounced search (300ms)
-  const handleSearchChange = useCallback((text: string) => {
-    setSearchQuery(text);
-    if (debounceTimer.current) clearTimeout(debounceTimer.current);
-    debounceTimer.current = setTimeout(() => {
-      setDebouncedQuery(text.trim().toLowerCase());
-    }, 300);
-  }, []);
+  const debouncedQuery = '';
 
   // Mark reports as viewed when this screen loads
   useEffect(() => {
@@ -467,15 +455,8 @@ export default function ReportsScreen() {
           {filteredDates.length} {t('reports.count')}
         </Text>
 
-        {/* Filter bar — date range only (ticker filter removed: reports always contain all tickers) */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.filterRow}
-          contentContainerStyle={styles.filterContent}
-          scrollEventThrottle={16}
-          bounces
-        >
+        {/* Filter bar — date range only */}
+        <View style={styles.filterRow}>
           {DATE_RANGE_FILTERS.map((r) => {
             const rangeLabel = r === 'Week' ? t('reports.week') : r === 'Month' ? t('reports.month') : t('reports.all');
             return (
@@ -490,26 +471,6 @@ export default function ReportsScreen() {
               />
             );
           })}
-        </ScrollView>
-
-        {/* Search bar */}
-        <View style={[styles.searchContainer, { borderColor: colors.border, backgroundColor: colors.card }]}>
-          <Ionicons name="search" size={16} color={colors.textMuted} style={styles.searchIcon} />
-          <TextInput
-            style={[styles.searchInput, { color: colors.textHeading }]}
-            placeholder={t('reports.search')}
-            placeholderTextColor={colors.textMuted}
-            value={searchQuery}
-            onChangeText={handleSearchChange}
-            autoCorrect={false}
-            autoCapitalize="none"
-            returnKeyType="done"
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => { setSearchQuery(''); setDebouncedQuery(''); }} activeOpacity={0.7}>
-              <Ionicons name="close-circle" size={18} color={colors.textMuted} />
-            </TouchableOpacity>
-          )}
         </View>
 
         {/* ── Insight Cards (stacked — show one at a time) ── */}
@@ -655,8 +616,7 @@ const styles = StyleSheet.create<Record<string, any>>({
   subtitle: { fontSize: 14, paddingHorizontal: 16, marginBottom: 12 },
 
   // Filter bar
-  filterRow: { marginBottom: 12 },
-  filterContent: { paddingHorizontal: 16, gap: 8, alignItems: 'center', paddingVertical: 6 },
+  filterRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 16, marginBottom: 12, marginTop: 4 },
   filterSpacer: { width: 8 },
   chip: {
     // Apple HIG pill chip: generous padding, clear pill shape, 44pt+ touch target
@@ -669,27 +629,6 @@ const styles = StyleSheet.create<Record<string, any>>({
     alignItems: 'center',
   },
   chipText: { fontSize: 14, fontWeight: '600', lineHeight: 18 },
-
-  // Search bar — 44pt touch target
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginHorizontal: 16,
-    marginBottom: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: CARD_RADIUS,
-    borderWidth: 1,
-    minHeight: 44,
-  },
-  searchIcon: {
-    marginRight: 8,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 16,
-    paddingVertical: 0,
-  },
 
   // Insight header (title + counter)
   insightHeader: {
