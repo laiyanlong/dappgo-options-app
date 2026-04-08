@@ -1144,25 +1144,72 @@ function SwipeToDeleteCard({
   onDelete: () => void;
   children: React.ReactNode;
 }) {
-  const handleLongPress = () => {
-    Alert.alert(
-      'Delete',
-      'Remove this backtest result?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete', style: 'destructive', onPress: onDelete },
-      ]
-    );
+  const { colors } = useTheme();
+  const translateX = useRef(new Animated.Value(0)).current;
+  const DELETE_WIDTH = 80;
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, g) =>
+        Math.abs(g.dx) > 10 && Math.abs(g.dx) > Math.abs(g.dy * 1.5),
+      onPanResponderMove: (_, g) => {
+        // Only allow left swipe (negative dx), clamped to -DELETE_WIDTH
+        const val = Math.max(Math.min(g.dx, 0), -DELETE_WIDTH);
+        translateX.setValue(val);
+      },
+      onPanResponderRelease: (_, g) => {
+        if (g.dx < -DELETE_WIDTH / 2) {
+          // Snap open to show delete button
+          Animated.spring(translateX, { toValue: -DELETE_WIDTH, useNativeDriver: true, friction: 8 }).start();
+        } else {
+          // Snap closed
+          Animated.spring(translateX, { toValue: 0, useNativeDriver: true, friction: 8 }).start();
+        }
+      },
+    })
+  ).current;
+
+  const handleDelete = () => {
+    Animated.timing(translateX, { toValue: -SCREEN_WIDTH, duration: 200, useNativeDriver: true }).start(() => onDelete());
+  };
+
+  const handleClose = () => {
+    Animated.spring(translateX, { toValue: 0, useNativeDriver: true }).start();
   };
 
   return (
-    <TouchableOpacity
-      activeOpacity={0.6}
-      onLongPress={handleLongPress}
-      delayLongPress={500}
-    >
-      {children}
-    </TouchableOpacity>
+    <View style={{ overflow: 'hidden', borderRadius: 12, marginBottom: 10 }}>
+      {/* Delete button behind the card */}
+      <TouchableOpacity
+        onPress={handleDelete}
+        activeOpacity={0.7}
+        style={{
+          position: 'absolute',
+          right: 0,
+          top: 0,
+          bottom: 0,
+          width: DELETE_WIDTH,
+          backgroundColor: colors.negative,
+          justifyContent: 'center',
+          alignItems: 'center',
+          borderTopRightRadius: 12,
+          borderBottomRightRadius: 12,
+        }}
+      >
+        <Ionicons name="trash-outline" size={22} color="#fff" />
+        <Text style={{ color: '#fff', fontSize: 11, fontWeight: '600', marginTop: 2 }}>Delete</Text>
+      </TouchableOpacity>
+
+      {/* Swipeable card content */}
+      <Animated.View
+        style={{ transform: [{ translateX }], backgroundColor: colors.card, borderRadius: 12 }}
+        {...panResponder.panHandlers}
+      >
+        <TouchableOpacity activeOpacity={0.7} onPress={handleClose}>
+          {children}
+        </TouchableOpacity>
+      </Animated.View>
+    </View>
   );
 }
 
