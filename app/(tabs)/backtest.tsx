@@ -884,6 +884,60 @@ export default function BacktestScreen() {
             </Card>
           )}
 
+          {/* ── Summary / Conclusion ── */}
+          <Card variant="highlight" style={{ marginBottom: 16 }}>
+            <Text style={[styles.summaryTicker, { color: colors.gold, marginBottom: 8 }]}>
+              {results.length === 1 ? '📋 Backtest Summary' : `📋 Comparison Summary (${results.length} strategies)`}
+            </Text>
+            {(() => {
+              const sorted = [...results].sort((a, b) => {
+                const sA = (a.sharpe * 0.4) + (a.winRate * 0.003) + (a.totalPnl > 0 ? 0.2 : -0.1);
+                const sB = (b.sharpe * 0.4) + (b.winRate * 0.003) + (b.totalPnl > 0 ? 0.2 : -0.1);
+                return sB - sA;
+              });
+              const best = sorted[0];
+              const worst = sorted[sorted.length - 1];
+              const allProfitable = results.every(r => r.totalPnl >= 0);
+              const allLosing = results.every(r => r.totalPnl < 0);
+              const avgWinRate = results.reduce((s, r) => s + r.winRate, 0) / results.length;
+              const totalPnl = results.reduce((s, r) => s + r.totalPnl, 0);
+
+              return (
+                <View>
+                  {/* Key metrics */}
+                  <View style={{ flexDirection: 'row', gap: 12, marginBottom: 12 }}>
+                    <View style={{ flex: 1, backgroundColor: colors.backgroundAlt, borderRadius: 8, padding: 10, alignItems: 'center' }}>
+                      <Text style={{ color: colors.textMuted, fontSize: 11 }}>Avg Win Rate</Text>
+                      <Text style={{ color: avgWinRate >= 55 ? colors.positive : colors.negative, fontSize: 18, fontWeight: '700', fontFamily: 'SpaceMono' }}>
+                        {avgWinRate.toFixed(1)}%
+                      </Text>
+                    </View>
+                    <View style={{ flex: 1, backgroundColor: colors.backgroundAlt, borderRadius: 8, padding: 10, alignItems: 'center' }}>
+                      <Text style={{ color: colors.textMuted, fontSize: 11 }}>Total P&L</Text>
+                      <Text style={{ color: totalPnl >= 0 ? colors.positive : colors.negative, fontSize: 18, fontWeight: '700', fontFamily: 'SpaceMono' }}>
+                        {totalPnl >= 0 ? '+' : ''}{formatDollar(totalPnl)}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Verdict */}
+                  <Text style={{ color: colors.text, fontSize: 14, lineHeight: 22 }}>
+                    {results.length === 1
+                      ? best.winRate >= 60
+                        ? `✅ ${best.input.symbol} ${best.input.strategy.replace(/_/g, ' ')} shows a ${best.winRate.toFixed(1)}% win rate with ${best.totalPnl >= 0 ? 'positive' : 'negative'} returns. ${best.sharpe >= 1 ? 'Risk-adjusted returns are strong.' : 'Consider tighter risk management.'}`
+                        : `⚠️ ${best.input.symbol} ${best.input.strategy.replace(/_/g, ' ')} has a ${best.winRate.toFixed(1)}% win rate. ${best.totalPnl < 0 ? 'This strategy lost money in this period.' : 'Marginal profitability — proceed with caution.'}`
+                      : allProfitable
+                        ? `✅ All ${results.length} strategies are profitable. 🥇 ${best.input.symbol} ${best.input.strategy.replace(/_/g, ' ')} leads with ${best.winRate.toFixed(1)}% win rate and Sharpe ${best.sharpe.toFixed(2)}.`
+                        : allLosing
+                          ? `🔴 All ${results.length} strategies lost money in this period. Consider adjusting parameters or waiting for better market conditions.`
+                          : `📊 Mixed results: 🥇 ${best.input.symbol} (WR ${best.winRate.toFixed(0)}%, P&L ${formatDollar(best.totalPnl)}) outperforms 🥉 ${worst.input.symbol} (WR ${worst.winRate.toFixed(0)}%, P&L ${formatDollar(worst.totalPnl)}). Consider focusing on the top performer.`
+                    }
+                  </Text>
+                </View>
+              );
+            })()}
+          </Card>
+
           {/* ── Action buttons ── */}
           <View style={styles.actionRow}>
             <TouchableOpacity

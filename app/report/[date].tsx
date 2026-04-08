@@ -192,16 +192,25 @@ function SectionBlock({
                 >
                   {/* Show key metrics in 2-column grid */}
                   <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4 }}>
-                    {row.cells.map((cell, ci) => (
+                    {row.cells.map((cell, ci) => {
+                      // Color-code values with +/- or percentage changes
+                      let valueColor = colors.textHeading;
+                      const trimmed = cell.trim();
+                      if (/^[+]/.test(trimmed) || /正常|Bullish|適合|Excellent|Good/i.test(trimmed)) {
+                        valueColor = colors.positive;
+                      } else if (/^[-]/.test(trimmed) && !/^-\$0\.00/.test(trimmed) || /Bearish|偏空|Poor|偏高 🔴/i.test(trimmed)) {
+                        valueColor = colors.negative;
+                      }
+                      return (
                       <View key={ci} style={{ width: '48%', paddingVertical: 3 }}>
                         <Text style={{ color: colors.textMuted, fontSize: 11, fontWeight: '600' }}>
                           {block.headers[ci] || ''}
                         </Text>
-                        <Text style={{ color: colors.textHeading, fontSize: 14, fontWeight: '500', fontFamily: 'SpaceMono' }}>
+                        <Text style={{ color: valueColor, fontSize: 14, fontWeight: '500', fontFamily: 'SpaceMono' }}>
                           {cell}
                         </Text>
                       </View>
-                    ))}
+                    );})}
                   </View>
                   {row.isHighlight && (
                     <Text style={{ color: colors.gold, fontSize: 11, fontWeight: '700', marginTop: 4 }}>★ Recommended</Text>
