@@ -30,6 +30,7 @@ import { useAppStore } from '../../src/store/app-store';
 import { getSecureKey, setSecureKey } from '../../src/data/secure-keys';
 import { getUsageStats } from '../../src/data/analytics';
 import { requestPermissions, scheduleDailyReminder, cancelDailyReminder } from '../../src/data/notifications';
+import { useT } from '../../src/utils/i18n';
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -42,6 +43,7 @@ export default function SettingsScreen() {
   const settings = useSettingsStore();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const t = useT();
 
   const [newTicker, setNewTicker] = useState('');
   const [showGeminiKey, setShowGeminiKey] = useState(false);
@@ -175,10 +177,10 @@ export default function SettingsScreen() {
         scrollEventThrottle={16}
         bounces
       >
-        <Text style={[styles.title, { color: colors.textHeading }]}>Settings</Text>
+        <Text style={[styles.title, { color: colors.textHeading }]}>{t('settings.title')}</Text>
 
         {/* ── Profile ── */}
-        <Text style={[styles.sectionHeader, { color: colors.textMuted }]}>PROFILE</Text>
+        <Text style={[styles.sectionHeader, { color: colors.textMuted }]}>{t('settings.profile')}</Text>
         <Card>
           <View style={styles.profileRow}>
             <View style={[styles.avatar, { backgroundColor: colors.accent }]}>
@@ -216,7 +218,7 @@ export default function SettingsScreen() {
         </Card>
 
         {/* ── Tickers ── */}
-        <Text style={[styles.sectionHeader, { color: colors.textMuted }]}>TICKERS</Text>
+        <Text style={[styles.sectionHeader, { color: colors.textMuted }]}>{t('settings.tickers')}</Text>
         <Card>
           <View style={styles.tickerList}>
             {settings.tickers.map((t) => (
@@ -256,7 +258,7 @@ export default function SettingsScreen() {
         </Card>
 
         {/* ── API Keys ── */}
-        <Text style={[styles.sectionHeader, { color: colors.textMuted }]}>API KEYS</Text>
+        <Text style={[styles.sectionHeader, { color: colors.textMuted }]}>{t('settings.apiKeys')}</Text>
         <Card>
           <View style={styles.inputRow}>
             <Text style={[styles.inputLabel, { color: colors.textMuted }]}>Gemini API Key</Text>
@@ -296,9 +298,9 @@ export default function SettingsScreen() {
         </Card>
 
         {/* ── Appearance ── */}
-        <Text style={[styles.sectionHeader, { color: colors.textMuted }]}>APPEARANCE</Text>
+        <Text style={[styles.sectionHeader, { color: colors.textMuted }]}>{t('settings.appearance')}</Text>
         <Card>
-          <Text style={[styles.subLabel, { color: colors.textMuted }]}>Theme</Text>
+          <Text style={[styles.subLabel, { color: colors.textMuted }]}>{t('settings.theme')}</Text>
           <View style={styles.optionRow}>
             {themeOptions.map((opt) => (
               <TouchableOpacity
@@ -326,7 +328,7 @@ export default function SettingsScreen() {
             ))}
           </View>
 
-          <Text style={[styles.subLabel, { color: colors.textMuted, marginTop: 12 }]}>Language</Text>
+          <Text style={[styles.subLabel, { color: colors.textMuted, marginTop: 12 }]}>{t('settings.language')}</Text>
           <View style={styles.optionRow}>
             {langOptions.map((opt) => (
               <TouchableOpacity
@@ -356,7 +358,7 @@ export default function SettingsScreen() {
         </Card>
 
         {/* ── Notifications ── */}
-        <Text style={[styles.sectionHeader, { color: colors.textMuted }]}>NOTIFICATIONS</Text>
+        <Text style={[styles.sectionHeader, { color: colors.textMuted }]}>{t('settings.notifications')}</Text>
         <Card>
           {([
             { key: 'dailyReport' as const, label: 'Daily Report Ready', icon: 'newspaper-outline' as IoniconsName },
@@ -397,7 +399,7 @@ export default function SettingsScreen() {
         </Card>
 
         {/* ── Data Stats ── */}
-        <Text style={[styles.sectionHeader, { color: colors.textMuted }]}>DATA</Text>
+        <Text style={[styles.sectionHeader, { color: colors.textMuted }]}>{t('settings.data')}</Text>
         <Card>
           {[
             { label: 'Sessions', value: `${usageStats.totalSessions}`, icon: 'pulse-outline' as IoniconsName },
@@ -430,16 +432,16 @@ export default function SettingsScreen() {
             style={[styles.actionBtn, { backgroundColor: colors.accent }]}
           >
             <Ionicons name="share-outline" size={18} color="#fff" style={{ marginRight: 8 }} />
-            <Text style={styles.actionBtnText}>Export All Data</Text>
+            <Text style={styles.actionBtnText}>{t('settings.exportAll')}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={handleClearCache}
             accessibilityRole="button"
-            accessibilityLabel="Clear cache and reset data"
+            accessibilityLabel={t('settings.clearCache')}
             style={[styles.actionBtn, { backgroundColor: colors.negative }]}
           >
             <Ionicons name="trash-outline" size={18} color="#fff" style={{ marginRight: 8 }} />
-            <Text style={styles.actionBtnText}>Clear Cache</Text>
+            <Text style={styles.actionBtnText}>{t('settings.clearCache')}</Text>
           </TouchableOpacity>
         </View>
 
@@ -462,18 +464,18 @@ export default function SettingsScreen() {
             style={[styles.actionBtn, { backgroundColor: colors.accent }]}
           >
             <Ionicons name="bookmark-outline" size={18} color="#fff" style={{ marginRight: 8 }} />
-            <Text style={styles.actionBtnText}>Export Watchlist</Text>
+            <Text style={styles.actionBtnText}>{t('settings.exportWatchlist')}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => {
               Alert.alert('Coming Soon', 'Watchlist import will be available in a future update.');
             }}
             accessibilityRole="button"
-            accessibilityLabel="Import watchlist"
+            accessibilityLabel={t('settings.importWatchlist')}
             style={[styles.actionBtn, { backgroundColor: colors.backgroundAlt, borderColor: colors.border, borderWidth: 1 }]}
           >
             <Ionicons name="download-outline" size={18} color={colors.textMuted} style={{ marginRight: 8 }} />
-            <Text style={[styles.actionBtnText, { color: colors.textMuted }]}>Import Watchlist</Text>
+            <Text style={[styles.actionBtnText, { color: colors.textMuted }]}>{t('settings.importWatchlist')}</Text>
           </TouchableOpacity>
         </View>
 
@@ -531,11 +533,11 @@ export default function SettingsScreen() {
           style={[styles.resetBtn, { borderColor: colors.negative }]}
         >
           <Ionicons name="warning-outline" size={18} color={colors.negative} style={{ marginRight: 8 }} />
-          <Text style={[styles.resetBtnText, { color: colors.negative }]}>Reset All Data</Text>
+          <Text style={[styles.resetBtnText, { color: colors.negative }]}>{t('settings.resetAll')}</Text>
         </TouchableOpacity>
 
         {/* ── About ── */}
-        <Text style={[styles.sectionHeader, { color: colors.textMuted }]}>ABOUT</Text>
+        <Text style={[styles.sectionHeader, { color: colors.textMuted }]}>{t('settings.about')}</Text>
         <Card>
           <View style={styles.aboutRow}>
             <Text style={[styles.aboutLabel, { color: colors.textMuted }]}>Version</Text>
@@ -567,7 +569,7 @@ export default function SettingsScreen() {
             <View style={styles.dataStatRow}>
               <Ionicons name="chatbubble-ellipses-outline" size={16} color={colors.accent} style={{ marginRight: 8 }} />
               <Text style={[styles.aboutLabel, { color: colors.textMuted }]}>
-                {settings.language === 'zh' ? '意見回饋' : 'Send Feedback'}
+                {t('settings.feedback')}
               </Text>
             </View>
             <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />

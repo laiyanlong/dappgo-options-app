@@ -28,6 +28,7 @@ import { Card } from '../../src/components/ui/Card';
 import { Badge } from '../../src/components/ui/Badge';
 import { EmptyState } from '../../src/components/ui/EmptyState';
 import { SectionHeader } from '../../src/components/ui/SectionHeader';
+import { useT } from '../../src/utils/i18n';
 import type { DailyReport, TickerReport } from '../../src/utils/types';
 
 // ── Filter chips ──
@@ -107,6 +108,7 @@ export default function ReportsScreen() {
   const { colors } = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const t = useT();
 
   // Store
   const reportDates = useAppStore((s) => s.reportDates);
@@ -340,8 +342,8 @@ export default function ReportsScreen() {
     return (
       <View style={[styles.center, { backgroundColor: colors.background }]}>
         <ActivityIndicator size="large" color={colors.accent} />
-        <Text style={[styles.loadingText, { color: colors.textMuted }]}>Loading reports...</Text>
-        <Text style={[styles.loadingHint, { color: colors.textMuted }]}>Fetching daily options analysis</Text>
+        <Text style={[styles.loadingText, { color: colors.textMuted }]}>{t('reports.loading')}</Text>
+        <Text style={[styles.loadingHint, { color: colors.textMuted }]}>{t('reports.loadingHint')}</Text>
       </View>
     );
   }
@@ -354,7 +356,7 @@ export default function ReportsScreen() {
           onPress={loadDates}
           style={[styles.retryBtn, { backgroundColor: colors.accent }]}
         >
-          <Text style={styles.retryText}>Retry</Text>
+          <Text style={styles.retryText}>{t('common.retry')}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -367,9 +369,9 @@ export default function ReportsScreen() {
     >
       <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top + 8 }]}>
         {/* Title */}
-        <Text style={[styles.title, { color: colors.textHeading }]}>Reports</Text>
+        <Text style={[styles.title, { color: colors.textHeading }]}>{t('reports.title')}</Text>
         <Text style={[styles.subtitle, { color: colors.textMuted }]}>
-          {filteredDates.length} report{filteredDates.length !== 1 ? 's' : ''}
+          {filteredDates.length} {t('reports.count')}
         </Text>
 
         {/* Filter bar — ticker chips */}
@@ -381,29 +383,32 @@ export default function ReportsScreen() {
           scrollEventThrottle={16}
           bounces
         >
-          {TICKER_FILTERS.map((t) => (
+          {TICKER_FILTERS.map((tk) => (
             <Chip
-              key={t}
-              label={t}
-              active={tickerFilter === t}
-              onPress={() => setTickerFilter(t)}
+              key={tk}
+              label={tk === 'All' ? t('reports.all') : tk}
+              active={tickerFilter === tk}
+              onPress={() => setTickerFilter(tk)}
               accentColor={colors.accent}
               textColor={colors.textMuted}
               borderColor={colors.border}
             />
           ))}
           <View style={styles.filterSpacer} />
-          {DATE_RANGE_FILTERS.map((r) => (
-            <Chip
-              key={r}
-              label={r}
-              active={dateRange === r}
-              onPress={() => setDateRange(r)}
-              accentColor={colors.gold}
-              textColor={colors.textMuted}
-              borderColor={colors.border}
-            />
-          ))}
+          {DATE_RANGE_FILTERS.map((r) => {
+            const rangeLabel = r === 'Week' ? t('reports.week') : r === 'Month' ? t('reports.month') : t('reports.all');
+            return (
+              <Chip
+                key={r}
+                label={rangeLabel}
+                active={dateRange === r}
+                onPress={() => setDateRange(r)}
+                accentColor={colors.gold}
+                textColor={colors.textMuted}
+                borderColor={colors.border}
+              />
+            );
+          })}
         </ScrollView>
 
         {/* Search bar */}
@@ -411,7 +416,7 @@ export default function ReportsScreen() {
           <Ionicons name="search" size={16} color={colors.textMuted} style={styles.searchIcon} />
           <TextInput
             style={[styles.searchInput, { color: colors.textHeading }]}
-            placeholder="Search reports..."
+            placeholder={t('reports.search')}
             placeholderTextColor={colors.textMuted}
             value={searchQuery}
             onChangeText={handleSearchChange}
@@ -454,7 +459,7 @@ export default function ReportsScreen() {
             />
           }
           ListEmptyComponent={
-            <EmptyState emoji="📰" message="No reports found" hint="Try adjusting your filters or pull down to refresh" />
+            <EmptyState emoji={'\uD83D\uDCF0'} message={t('reports.noReports')} hint={t('reports.noReportsHint')} />
           }
         />
       </View>
@@ -476,7 +481,7 @@ export default function ReportsScreen() {
               if (!report) {
                 return (
                   <Text style={[styles.previewEmpty, { color: colors.textMuted }]}>
-                    Loading report data...
+                    {t('reports.loadingData')}
                   </Text>
                 );
               }
@@ -512,7 +517,7 @@ export default function ReportsScreen() {
                     }}
                     activeOpacity={0.7}
                   >
-                    <Text style={styles.previewOpenBtnText}>Open Full Report</Text>
+                    <Text style={styles.previewOpenBtnText}>{t('reports.openFull')}</Text>
                   </TouchableOpacity>
                 </>
               );

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -8,12 +8,14 @@ import {
   Share,
   StyleSheet,
   Alert,
+  Modal,
   useWindowDimensions,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTheme } from '../../src/theme';
 import { useAppStore } from '../../src/store/app-store';
+import { useSettingsStore } from '../../src/store/settings-store';
 import { fetchReportContent } from '../../src/data/github-api';
 import { parseReport, extractTickerMetrics } from '../../src/data/parser';
 import { formatDollar, formatPct, formatDateFull } from '../../src/utils/format';
@@ -24,9 +26,12 @@ import { Badge } from '../../src/components/ui/Badge';
 import { SegmentedControl } from '../../src/components/ui/SegmentedControl';
 import { useBacktestStore } from '../../src/store/backtest-store';
 import { trackEvent } from '../../src/data/analytics';
+import { useT } from '../../src/utils/i18n';
+import { findGlossaryTerms, type GlossaryMatch } from '../../src/utils/glossary-linker';
 import type { DailyReport, TickerReport } from '../../src/utils/types';
 
-const TABS = ['Overview', 'Options', 'Strategy', 'Model', 'AI'];
+// ── Tab keys (internal) ──
+const TAB_KEYS = ['overview', 'options', 'strategy', 'model', 'ai'];
 
 // ── Section rendering helpers ──
 
@@ -68,10 +73,10 @@ function SectionBlock({
     code_inline: { color: colors.gold, backgroundColor: colors.backgroundAlt, paddingHorizontal: 4, borderRadius: 3, fontSize: 13 },
     code_block: { color: colors.text, backgroundColor: colors.backgroundAlt, padding: 12, borderRadius: 8, fontSize: 12, marginVertical: 8 },
     fence: { color: colors.text, backgroundColor: colors.backgroundAlt, padding: 12, borderRadius: 8, fontSize: 12, marginVertical: 8 },
-    table: { borderColor: colors.border, marginVertical: 8 },
+    table: { borderColor: colors.border, marginVertical: 8, borderWidth: 0.5 },
     thead: { backgroundColor: colors.backgroundAlt },
-    th: { color: colors.textHeading, fontWeight: '600' as const, padding: 8, paddingHorizontal: 10, borderColor: colors.border, fontSize: 13, minWidth: 72 },
-    td: { color: colors.text, padding: 8, paddingHorizontal: 10, borderColor: colors.border, fontSize: 13, minWidth: 72 },
+    th: { color: colors.textHeading, fontWeight: '600' as const, padding: 6, borderColor: colors.border, fontSize: 11, borderWidth: 0.5 },
+    td: { color: colors.text, padding: 6, borderColor: colors.border, fontSize: 11, borderWidth: 0.5 },
     tr: { borderColor: colors.border },
     blockquote: { backgroundColor: colors.backgroundAlt, borderLeftColor: colors.accent, borderLeftWidth: 3, paddingLeft: 12, paddingVertical: 4, marginVertical: 6 },
     hr: { backgroundColor: colors.border, marginVertical: 12 },
@@ -81,16 +86,16 @@ function SectionBlock({
 
   if (hasTable) {
     // Wrap table-heavy content in horizontal scroll so the user can pan columns
-    const tableMinWidth = Math.max(screenWidth - 32, 900);
     return (
       <View style={styles.sectionBlock}>
+        <Text style={{ color: colors.textMuted, fontSize: 12, marginBottom: 6 }}>← Scroll horizontally to see full table →</Text>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator
           bounces
-          contentContainerStyle={{ minWidth: tableMinWidth }}
+          scrollEventThrottle={16}
         >
-          <View style={{ minWidth: tableMinWidth }}>
+          <View style={{ minWidth: screenWidth * 1.8 }}>
             <Markdown style={mdStyles}>{content}</Markdown>
           </View>
         </ScrollView>
@@ -301,6 +306,10 @@ export default function ReportDetailScreen() {
   const { colors } = useTheme();
   const router = useRouter();
   const addToPortfolio = useBacktestStore((s) => s.addToPortfolio);
+  const t = useT();
+  const language = useSettingsStore((s) => s.language);
+
+  const TABS = [t('report.overview'), t('report.options'), t('report.strategy'), t('report.model'), t('report.ai')];
 
   const cachedReport = useAppStore((s) => s.reports[date ?? '']);
   const setReport = useAppStore((s) => s.setReport);
@@ -357,11 +366,13 @@ export default function ReportDetailScreen() {
   // ── Section content for each tab ──
 
   function getSectionContent(tab: string): string {
-    switch (tab) {
-      case 'Overview':
+    // Match by index since tab labels are now translated
+    const tabIdx = TABS.indexOf(tab);
+    switch (tabIdx) {
+      case 0: // Overview
         // Overview uses structured data, not raw section
         return '';
-      case 'Options': {
+      case 1: { // Options
         // Collect all ticker sections that contain table data
         const parts: string[] = [];
         for (const [name, content] of Object.entries(sections)) {
@@ -371,13 +382,13 @@ export default function ReportDetailScreen() {
         }
         return parts.join('\n\n') || '';
       }
-      case 'Strategy': {
+      case 2: { // Strategy
         const keys = Object.keys(sections).filter(
           (k) => k.includes('策略') || k.includes('Strategy') || k.includes('建議') || k.includes('組合')
         );
         return keys.map((k) => sections[k]).join('\n\n');
       }
-      case 'Model': {
+      case 3: { // Model
         const keys = Object.keys(sections).filter(
           (k) =>
             k.includes('模型') ||
@@ -388,7 +399,7 @@ export default function ReportDetailScreen() {
         );
         return keys.map((k) => sections[k]).join('\n\n');
       }
-      case 'AI': {
+      case 4: { // AI
         const keys = Object.keys(sections).filter(
           (k) => k.includes('🤖') || k.includes('AI') || k.includes('GPT') || k.includes('Commentary')
         );
@@ -398,6 +409,16 @@ export default function ReportDetailScreen() {
         return '';
     }
   }
+
+  // ── Glossary terms detection ──
+  const [glossaryExpanded, setGlossaryExpanded] = useState(false);
+  const [glossaryTooltip, setGlossaryTooltip] = useState<GlossaryMatch | null>(null);
+
+  const glossaryMatches = useMemo(() => {
+    // Scan all section content for glossary terms
+    const allContent = Object.values(sections).join('\n');
+    return findGlossaryTerms(allContent, language);
+  }, [sections, language]);
 
   // ── Actions ──
 
@@ -412,7 +433,7 @@ export default function ReportDetailScreen() {
         }
       }
       await Clipboard.setStringAsync(lines.join('\n'));
-      Alert.alert('Copied', 'Report summary copied to clipboard.');
+      Alert.alert(t('report.copied'), t('report.copiedMsg'));
     } catch {
       // Silent fail
     }
@@ -467,7 +488,7 @@ export default function ReportDetailScreen() {
     return (
       <View style={[styles.center, { backgroundColor: colors.background }]}>
         <ActivityIndicator size="large" color={colors.accent} />
-        <Text style={[styles.loadingText, { color: colors.textMuted }]}>Loading report...</Text>
+        <Text style={[styles.loadingText, { color: colors.textMuted }]}>{t('report.loading')}</Text>
       </View>
     );
   }
@@ -480,7 +501,7 @@ export default function ReportDetailScreen() {
           onPress={loadFull}
           style={[styles.retryBtn, { backgroundColor: colors.accent }]}
         >
-          <Text style={styles.retryText}>Retry</Text>
+          <Text style={styles.retryText}>{t('common.retry')}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -494,7 +515,7 @@ export default function ReportDetailScreen() {
       {/* Header */}
       <View style={[styles.header, { borderBottomColor: colors.border }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Text style={[styles.backText, { color: colors.accent }]}>← Back</Text>
+          <Text style={[styles.backText, { color: colors.accent }]}>{'\u2190'} {t('report.back')}</Text>
         </TouchableOpacity>
         <View style={styles.headerCenter}>
           <Text style={[styles.headerDate, { color: colors.textHeading }]}>
@@ -511,12 +532,69 @@ export default function ReportDetailScreen() {
 
       {/* Content */}
       <ScrollView style={styles.scrollContent} contentContainerStyle={styles.scrollInner}>
-        {currentTab === 'Overview' && report ? (
+        {tabIndex === 0 && report ? (
           <OverviewTab report={report} colors={colors} />
         ) : (
           <SectionBlock title={currentTab} content={sectionContent} colors={colors} />
         )}
       </ScrollView>
+
+      {/* Glossary terms panel */}
+      {glossaryMatches.length > 0 && (
+        <View style={[styles.glossaryBar, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
+          <TouchableOpacity
+            onPress={() => setGlossaryExpanded(!glossaryExpanded)}
+            style={styles.glossaryToggle}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.glossaryToggleText, { color: colors.textMuted }]}>
+              {'\uD83D\uDCD6'} {glossaryMatches.length} {t('report.termsFound')}
+            </Text>
+            <Text style={[styles.glossaryChevron, { color: colors.textMuted }]}>
+              {glossaryExpanded ? '\u25B2' : '\u25BC'}
+            </Text>
+          </TouchableOpacity>
+          {glossaryExpanded && (
+            <View style={styles.glossaryChips}>
+              {glossaryMatches.map((match) => (
+                <TouchableOpacity
+                  key={match.id}
+                  onPress={() => setGlossaryTooltip(match)}
+                  style={[styles.glossaryChip, { backgroundColor: colors.accent + '18', borderColor: colors.accent + '40' }]}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.glossaryChipText, { color: colors.accent }]}>
+                    {match.term}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+        </View>
+      )}
+
+      {/* Glossary tooltip modal */}
+      <Modal
+        visible={glossaryTooltip !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setGlossaryTooltip(null)}
+      >
+        <TouchableOpacity
+          style={styles.tooltipOverlay}
+          activeOpacity={1}
+          onPress={() => setGlossaryTooltip(null)}
+        >
+          <View style={[styles.tooltipCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Text style={[styles.tooltipTerm, { color: colors.gold }]}>
+              {glossaryTooltip?.term}
+            </Text>
+            <Text style={[styles.tooltipDef, { color: colors.text }]}>
+              {glossaryTooltip?.definition}
+            </Text>
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
       {/* Action buttons — 2-row layout */}
       <View style={[styles.actionBar, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
@@ -525,7 +603,7 @@ export default function ReportDetailScreen() {
           onPress={handleAddToBacktest}
           style={[styles.actionBtnFull, { backgroundColor: colors.accent }]}
         >
-          <Text style={styles.actionBtnText}>+ Add to Backtest</Text>
+          <Text style={styles.actionBtnText}>{t('report.addBacktest')}</Text>
         </TouchableOpacity>
         {/* Row 2: Secondary actions */}
         <View style={styles.actionRow}>
@@ -534,21 +612,21 @@ export default function ReportDetailScreen() {
             style={[styles.actionBtnSecondary, { backgroundColor: colors.backgroundAlt, borderWidth: 1, borderColor: colors.border }]}
           >
             <Text style={[styles.actionBtnText, { color: colors.textHeading }]}>
-              {'\uD83D\uDCCB'} Copy
+              {'\uD83D\uDCCB'} {t('report.copy')}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={handleShare}
             style={[styles.actionBtnSecondary, { backgroundColor: colors.backgroundAlt, borderWidth: 1, borderColor: colors.border }]}
           >
-            <Text style={[styles.actionBtnText, { color: colors.textHeading }]}>Share</Text>
+            <Text style={[styles.actionBtnText, { color: colors.textHeading }]}>{t('report.share')}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={handleCopyLink}
             style={[styles.actionBtnSecondary, { backgroundColor: colors.backgroundAlt, borderWidth: 1, borderColor: linkCopied ? colors.positive : colors.border }]}
           >
             <Text style={[styles.actionBtnText, { color: linkCopied ? colors.positive : colors.textHeading }]}>
-              {linkCopied ? 'Copied!' : '\uD83D\uDD17 Link'}
+              {linkCopied ? (language === 'zh' ? '已複製!' : 'Copied!') : `\uD83D\uDD17 ${t('report.link')}`}
             </Text>
           </TouchableOpacity>
         </View>
@@ -669,4 +747,67 @@ const styles = StyleSheet.create({
   errorText: { fontSize: 15, textAlign: 'center', marginBottom: 16 },
   retryBtn: { paddingHorizontal: 24, paddingVertical: 10, borderRadius: 8 },
   retryText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+
+  // Glossary panel
+  glossaryBar: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  glossaryToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 6,
+    minHeight: 36,
+  },
+  glossaryToggleText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  glossaryChevron: {
+    fontSize: 12,
+  },
+  glossaryChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    paddingTop: 6,
+    paddingBottom: 4,
+  },
+  glossaryChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  glossaryChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+
+  // Glossary tooltip modal
+  tooltipOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+  },
+  tooltipCard: {
+    width: '100%',
+    maxWidth: 320,
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 20,
+  },
+  tooltipTerm: {
+    fontSize: 17,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  tooltipDef: {
+    fontSize: 15,
+    lineHeight: 22,
+  },
 });

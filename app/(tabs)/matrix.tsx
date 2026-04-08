@@ -27,14 +27,12 @@ import { StrikeCard, calculateStarRating } from '../../src/components/trade/Stri
 import { formatDollar, formatDate, daysUntil } from '../../src/utils/format';
 import { EmptyState } from '../../src/components/ui/EmptyState';
 import { trackEvent } from '../../src/data/analytics';
+import { useT } from '../../src/utils/i18n';
 import type { OptionEntry, StrikeComparison } from '../../src/utils/types';
 
 // ── Supported tickers (extend as matrix data grows) ──
 const TICKERS = ['TSLA', 'AMZN', 'NVDA'] as const;
 type Ticker = (typeof TICKERS)[number];
-
-// ── Type toggle options ──
-const TYPE_SEGMENTS = ['Sell Put', 'Sell Call'];
 
 // ── iPad breakpoint ──
 const IPAD_WIDTH = 768;
@@ -45,6 +43,10 @@ export default function MatrixScreen() {
   const router = useRouter();
   const { width } = useWindowDimensions();
   const isWide = width >= IPAD_WIDTH;
+  const t = useT();
+
+  // ── Type toggle options (translated) ──
+  const TYPE_SEGMENTS = [t('strategy.sellPut'), t('strategy.sellCall')];
 
   // ── Store data (split selectors to reduce re-renders) ──
   const matrices = useAppStore((s) => s.matrices);
@@ -243,9 +245,9 @@ export default function MatrixScreen() {
       {/* ── Page header with glossary ── */}
       <View style={styles.header}>
         <View style={{ flex: 1 }}>
-          <Text style={[styles.title, { color: colors.textHeading }]}>Options Matrix</Text>
+          <Text style={[styles.title, { color: colors.textHeading }]}>{t('matrix.title')}</Text>
           <Text style={[styles.subtitle, { color: colors.textMuted }]}>
-            Strike comparison &amp; analysis
+            {t('matrix.subtitle')}
           </Text>
         </View>
         <TouchableOpacity
@@ -378,11 +380,11 @@ export default function MatrixScreen() {
       <View style={styles.countRow}>
         <Text style={[styles.countLabel, { color: colors.textMuted }]}>
           {strikes.length > 0
-            ? `${strikes.length} strikes${bestStrike ? ` \u2022 Best: ${formatDollar(bestStrike.strike)}` : ''}`
+            ? `${strikes.length} ${t('matrix.strikes')}${bestStrike ? ` \u2022 ${t('matrix.best')}: ${formatDollar(bestStrike.strike)}` : ''}`
             : matrix
             ? ''
             : loading
-            ? 'Loading...'
+            ? t('common.loading')
             : ''}
         </Text>
       </View>
@@ -398,8 +400,8 @@ export default function MatrixScreen() {
       return (
         <EmptyState
           emoji={'\uD83D\uDCCA'}
-          message="Loading Options Data..."
-          hint={'Fetching live options chains\nfrom the market.'}
+          message={t('matrix.loadingOptions')}
+          hint={t('matrix.loadingHint')}
         />
       );
     }
@@ -408,7 +410,7 @@ export default function MatrixScreen() {
         <View style={styles.emptyInList}>
           <EmptyState
             emoji={'\u26A0\uFE0F'}
-            message="No Matrix Data"
+            message={t('matrix.noMatrixData')}
             hint={
               selectedTicker === 'TSLA'
                 ? 'Data loading failed. Check your connection.'
@@ -492,7 +494,7 @@ export default function MatrixScreen() {
           activeOpacity={0.8}
         >
           <Text style={styles.floatingBarText}>
-            Compare ({compareItems.length})
+            {t('matrix.compare')} ({compareItems.length})
           </Text>
           <Ionicons name="chevron-up" size={18} color="#fff" />
         </TouchableOpacity>
@@ -504,7 +506,7 @@ export default function MatrixScreen() {
           {/* Sheet header */}
           <View style={styles.compareHeader}>
             <Text style={[styles.compareTitle, { color: colors.textHeading }]}>
-              Compare ({compareItems.length})
+              {t('matrix.compare')} ({compareItems.length})
             </Text>
             <TouchableOpacity
               onPress={() => setCompareSheetOpen(false)}
@@ -564,14 +566,14 @@ export default function MatrixScreen() {
               }}
               activeOpacity={0.7}
             >
-              <Text style={[styles.clearBtnText, { color: colors.textMuted }]}>Clear All</Text>
+              <Text style={[styles.clearBtnText, { color: colors.textMuted }]}>{t('matrix.clearAll')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.backtestBtn, { backgroundColor: colors.accent }]}
               onPress={handleCompareBacktest}
               activeOpacity={0.7}
             >
-              <Text style={styles.backtestBtnText}>Compare in Backtest {'\u2192'}</Text>
+              <Text style={styles.backtestBtnText}>{t('matrix.compareInBacktest')} {'\u2192'}</Text>
             </TouchableOpacity>
           </View>
         </View>

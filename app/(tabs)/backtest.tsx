@@ -37,6 +37,7 @@ import { formatDollar } from '../../src/utils/format';
 import { backtestToShareText, backtestToCsv } from '../../src/utils/export';
 import { EmptyState } from '../../src/components/ui/EmptyState';
 import { trackEvent } from '../../src/data/analytics';
+import { useT } from '../../src/utils/i18n';
 import type { BacktestInput, BacktestResult } from '../../src/utils/types';
 
 // Enable LayoutAnimation on Android
@@ -52,12 +53,12 @@ interface LivePrice {
   change_pct: number;
 }
 
-// ── Strategy definitions ──
-const STRATEGIES: { key: BacktestInput['strategy']; label: string }[] = [
-  { key: 'sell_put', label: 'Sell Put' },
-  { key: 'sell_call', label: 'Sell Call' },
-  { key: 'iron_condor', label: 'Iron Condor' },
-  { key: 'bull_put_spread', label: 'Bull Put Spread' },
+// ── Strategy definitions (labels will be translated in component) ──
+const STRATEGY_KEYS: { key: BacktestInput['strategy']; i18nKey: string; fallback: string }[] = [
+  { key: 'sell_put', i18nKey: 'strategy.sellPut', fallback: 'Sell Put' },
+  { key: 'sell_call', i18nKey: 'strategy.sellCall', fallback: 'Sell Call' },
+  { key: 'iron_condor', i18nKey: 'strategy.ironCondor', fallback: 'Iron Condor' },
+  { key: 'bull_put_spread', i18nKey: 'strategy.bullPutSpread', fallback: 'Bull Put Spread' },
 ];
 
 const PERIODS: { key: BacktestInput['period']; label: string }[] = [
@@ -86,6 +87,10 @@ export default function BacktestScreen() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const tickers = useSettingsStore((s) => s.tickers);
+  const t = useT();
+
+  // Translated strategy labels
+  const STRATEGIES = STRATEGY_KEYS.map((s) => ({ key: s.key, label: t(s.i18nKey) }));
   // Split store selectors to reduce re-renders
   const mode = useBacktestStore((s) => s.mode);
   const setMode = useBacktestStore((s) => s.setMode);
@@ -264,16 +269,16 @@ export default function BacktestScreen() {
       {/* ── Header ── */}
       <View style={styles.header}>
         <View>
-          <Text style={[styles.title, { color: colors.textHeading }]}>Backtest</Text>
+          <Text style={[styles.title, { color: colors.textHeading }]}>{t('backtest.title')}</Text>
           <Text style={[styles.subtitle, { color: colors.textMuted }]}>
-            Validate strategies with historical simulation
+            {t('backtest.subtitle')}
           </Text>
         </View>
       </View>
 
       {/* ── Mode toggle ── */}
       <SegmentedControl
-        segments={['Simple', 'Advanced']}
+        segments={[t('backtest.simple'), t('backtest.advanced')]}
         selectedIndex={mode === 'simple' ? 0 : 1}
         onChange={(i) => setMode(i === 0 ? 'simple' : 'advanced')}
       />
@@ -465,10 +470,10 @@ export default function BacktestScreen() {
             {computing ? (
               <View style={styles.runBtnInner}>
                 <ActivityIndicator color="#fff" size="small" />
-                <Text style={styles.runBtnText}> Computing...</Text>
+                <Text style={styles.runBtnText}> {t('backtest.computing')}</Text>
               </View>
             ) : (
-              <Text style={styles.runBtnText}>Run Backtest</Text>
+              <Text style={styles.runBtnText}>{t('backtest.run')}</Text>
             )}
           </TouchableOpacity>
         </>
@@ -518,7 +523,7 @@ export default function BacktestScreen() {
             style={[styles.addBtn, { borderColor: colors.accent }]}
             onPress={() => setAddModalVisible(true)}
           >
-            <Text style={[styles.addBtnText, { color: colors.accent }]}>+ Add Position</Text>
+            <Text style={[styles.addBtnText, { color: colors.accent }]}>{t('backtest.addPosition')}</Text>
           </TouchableOpacity>
 
           {/* Compare All button */}
@@ -532,10 +537,10 @@ export default function BacktestScreen() {
               {computing ? (
                 <View style={styles.runBtnInner}>
                   <ActivityIndicator color="#fff" size="small" />
-                  <Text style={styles.runBtnText}> Computing...</Text>
+                  <Text style={styles.runBtnText}> {t('backtest.computing')}</Text>
                 </View>
               ) : (
-                <Text style={styles.runBtnText}>Compare All</Text>
+                <Text style={styles.runBtnText}>{t('backtest.compareAll')}</Text>
               )}
             </TouchableOpacity>
           )}
@@ -653,7 +658,7 @@ export default function BacktestScreen() {
                     style={[styles.modalCancelBtn, { borderColor: colors.border }]}
                     onPress={() => setAddModalVisible(false)}
                   >
-                    <Text style={{ color: colors.textMuted, fontWeight: '600' }}>Cancel</Text>
+                    <Text style={{ color: colors.textMuted, fontWeight: '600' }}>{t('common.cancel')}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={[styles.modalConfirmBtn, { backgroundColor: colors.accent }]}
@@ -672,8 +677,8 @@ export default function BacktestScreen() {
       {results.length === 0 && savedResults.length === 0 && !computing && (
         <EmptyState
           emoji={'\uD83D\uDCC8'}
-          message="Run Your First Backtest"
-          hint={'Choose a ticker and strategy above,\nthen tap "Run Backtest" to see results.\n\nTip: Start with TSLA Sell Put 5% OTM\nfor the most liquid options.'}
+          message={t('backtest.firstRun')}
+          hint={t('backtest.firstRunHint')}
         />
       )}
 
@@ -683,10 +688,10 @@ export default function BacktestScreen() {
           {/* Divider */}
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
           <Text style={[styles.resultsTitle, { color: colors.textHeading }]}>
-            Results
+            {t('backtest.results')}
           </Text>
           <Text style={[styles.simNote, { color: colors.textMuted }]}>
-            Using simulated prices. Real historical data coming soon.
+            {t('backtest.simNote')}
           </Text>
 
           {/* ── Best Pick Banner (multi-result only) ── */}
@@ -867,7 +872,7 @@ export default function BacktestScreen() {
                 Alert.alert('Saved', 'Backtest results saved to history.');
               }}
             >
-              <Text style={styles.actionBtnText}>Save to History</Text>
+              <Text style={styles.actionBtnText}>{t('backtest.saveToHistory')}</Text>
             </TouchableOpacity>
           </View>
           <View style={styles.actionRow}>
@@ -881,7 +886,7 @@ export default function BacktestScreen() {
                 } catch {}
               }}
             >
-              <Text style={[styles.actionBtnText, { color: colors.text }]}>{'\uD83D\uDCF8'} Share Results</Text>
+              <Text style={[styles.actionBtnText, { color: colors.text }]}>{'\uD83D\uDCF8'} {t('backtest.shareResults')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.actionBtn, { backgroundColor: colors.backgroundAlt, borderColor: colors.border, borderWidth: 1 }]}
@@ -892,7 +897,7 @@ export default function BacktestScreen() {
                 } catch {}
               }}
             >
-              <Text style={[styles.actionBtnText, { color: colors.text }]}>Export CSV</Text>
+              <Text style={[styles.actionBtnText, { color: colors.text }]}>{t('backtest.exportCsv')}</Text>
             </TouchableOpacity>
           </View>
         </>
@@ -903,7 +908,7 @@ export default function BacktestScreen() {
         <>
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
           <Text style={[styles.resultsTitle, { color: colors.textHeading }]}>
-            {'\uD83D\uDCDA'} History
+            {'\uD83D\uDCDA'} {t('backtest.history')}
           </Text>
           <Text style={[styles.simNote, { color: colors.textMuted }]}>
             {savedResults.length} saved result{savedResults.length !== 1 ? 's' : ''}. Swipe left to delete.

@@ -35,12 +35,13 @@ import { FadeIn } from '../../src/components/ui/FadeIn';
 import { WelcomeCard } from '../../src/components/onboarding/WelcomeCard';
 import { lightHaptic } from '../../src/utils/haptics';
 import { useWatchlistStore } from '../../src/store/watchlist-store';
+import { useT } from '../../src/utils/i18n';
 import type { WatchlistItem } from '../../src/store/watchlist-store';
 import type { TickerVerdict } from '../../src/utils/types';
 
 // ── Refresh Banner ──
 
-function RefreshBanner({ visible }: { visible: boolean }) {
+function RefreshBanner({ visible, label }: { visible: boolean; label: string }) {
   const opacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -57,7 +58,7 @@ function RefreshBanner({ visible }: { visible: boolean }) {
 
   return (
     <Animated.View style={[styles.refreshBanner, { opacity }]}>
-      <Text style={styles.refreshBannerText}>{'\u2713'} Data updated</Text>
+      <Text style={styles.refreshBannerText}>{'\u2713'} {label}</Text>
     </Animated.View>
   );
 }
@@ -267,6 +268,7 @@ const WatchlistCard = React.memo(function WatchlistCard({
 export default function DashboardScreen() {
   const { colors, isDark } = useTheme();
   const router = useRouter();
+  const t = useT();
   const backtestSetSimpleInput = useBacktestStore((s) => s.setSimpleInput);
   const backtestSetMode = useBacktestStore((s) => s.setMode);
   const backtestSetPendingAutoRun = useBacktestStore((s) => s.setPendingAutoRun);
@@ -531,7 +533,7 @@ export default function DashboardScreen() {
   // ── Loading state with skeleton ──
   if (isLoadingDashboard && !dashboardData) {
     return (
-      <TabPage title="Dashboard" subtitle="Loading market data...">
+      <TabPage title={t('dashboard.title')} subtitle={t('dashboard.loading')}>
         <DashboardSkeleton />
       </TabPage>
     );
@@ -540,13 +542,13 @@ export default function DashboardScreen() {
   // ── Error / empty state ──
   if ((error || !dashboardData) && !isLoadingDashboard) {
     return (
-      <TabPage title="Dashboard" onRefresh={loadData}>
+      <TabPage title={t('dashboard.title')} onRefresh={loadData}>
         <View style={[styles.welcomeCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Text style={[styles.welcomeTitle, { color: colors.gold }]}>
-            Welcome to DappGo Options
+            {t('dashboard.welcome')}
           </Text>
           <Text style={[styles.welcomeBody, { color: colors.textMuted }]}>
-            Pull down to load market data
+            {t('dashboard.pullDown')}
           </Text>
           {error && (
             <Text style={[styles.welcomeError, { color: colors.negative }]}>
@@ -558,7 +560,7 @@ export default function DashboardScreen() {
             onPress={loadData}
             activeOpacity={0.7}
           >
-            <Text style={styles.retryText}>Load Data</Text>
+            <Text style={styles.retryText}>{t('dashboard.loadData')}</Text>
           </TouchableOpacity>
         </View>
       </TabPage>
@@ -567,8 +569,8 @@ export default function DashboardScreen() {
 
   return (
     <TabPage
-      title="Dashboard"
-      subtitle="Live market data & model verdict"
+      title={t('dashboard.title')}
+      subtitle={t('dashboard.subtitle')}
       onRefresh={onRefresh}
       headerRight={
         <TouchableOpacity
@@ -581,7 +583,7 @@ export default function DashboardScreen() {
       }
     >
       {/* ── Refresh Success Banner ── */}
-      <RefreshBanner key={refreshBannerKey.current} visible={showRefreshBanner} />
+      <RefreshBanner key={refreshBannerKey.current} visible={showRefreshBanner} label={t('dashboard.dataUpdated')} />
 
       {/* ── Last Updated ── */}
       <View style={{ marginBottom: spacing.lg }}>
@@ -602,7 +604,7 @@ export default function DashboardScreen() {
       {livePrices.length > 0 && (
         <FadeIn>
           <View style={styles.section}>
-            <SectionHeader title="Live Prices" />
+            <SectionHeader title={t('dashboard.livePrices')} />
             <FlatList
               data={livePrices}
               renderItem={renderPriceCard}
@@ -624,7 +626,7 @@ export default function DashboardScreen() {
       {livePrices.length > 0 && (
         <FadeIn delay={100}>
           <View style={styles.section}>
-            <SectionHeader title={'\uD83D\uDCC8 Chart'} />
+            <SectionHeader title={`\uD83D\uDCC8 ${t('dashboard.chart')}`} />
             {/* Ticker selector pills */}
             <View style={styles.chartTickerRow}>
               {livePrices.map((lp) => (
@@ -677,18 +679,18 @@ export default function DashboardScreen() {
         </Text>
         <Text style={[styles.quickStatDot, { color: colors.border }]}>{'\u00B7'}</Text>
         <Text style={[styles.quickStatText, { color: marketStatus.isOpen ? colors.positive : colors.textMuted }]}>
-          Market {marketStatus.label}
+          Market {marketStatus.isOpen ? t('dashboard.marketOpen') : t('dashboard.marketClosed')}
         </Text>
         <Text style={[styles.quickStatDot, { color: colors.border }]}>{'\u00B7'}</Text>
         <Text style={[styles.quickStatText, { color: colors.textMuted }]}>
-          {reportsCount} report{reportsCount !== 1 ? 's' : ''}
+          {reportsCount} {t('reports.count')}
         </Text>
       </View>
 
       {/* ── Market Summary ── */}
       {dd && (
         <View style={styles.section}>
-          <SectionHeader title="Market Summary" />
+          <SectionHeader title={t('dashboard.marketSummary')} />
           <Card>
             {dd.summary != null ? (() => {
               const s = dd.summary as Record<string, number>;
@@ -748,7 +750,7 @@ export default function DashboardScreen() {
       {/* ── Best Time to Trade ── */}
       {timingTickers.length > 0 && (
         <View style={styles.section}>
-          <SectionHeader title={'\u23F0 Best Time to Trade'} />
+          <SectionHeader title={`\u23F0 ${t('dashboard.bestTime')}`} />
           <Card>
             {timingTickers.map((ticker, idx) => {
               const entry = timingData[ticker];
